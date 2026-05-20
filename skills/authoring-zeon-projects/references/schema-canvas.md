@@ -6,10 +6,10 @@ A workflow can have **at most one** canvas. A canvas file may exist without a co
 
 ## File location and naming
 
-Path: `canvas/<canvas_id>.tsx`
-- `<canvas_id>` pattern: `^[a-z0-9_]+$` (lowercase, alphanumeric, underscores; no dashes).
-- Convention: `<workflow_id>_screen.tsx` (e.g. `pick_place_screen.tsx`), but any name matching the regex works.
-- The `source_ref` in the workflow's `canvas_ui` must be `canvas/<canvas_id>.tsx` exactly.
+Path: `canvas/<workflow_id>_screen.tsx`
+- The filename is **derived from the workflow id** the canvas belongs to. The scaffold's `item_template("canvas", <workflow_id>)` emits exactly `canvas/<workflow_id>_screen.tsx` — and `primary_path_for("canvas", <workflow_id>)` returns the same.
+- The `<workflow_id>` part must match `^[a-z0-9_]+$`. The trailing `_screen` is the convention.
+- The `source_ref` in the workflow's `canvas_ui` must equal `canvas/<workflow_id>_screen.tsx` exactly.
 
 ## Wiring from the workflow
 
@@ -55,7 +55,47 @@ declare const zeon: {
 
 The TSX file MUST `export default` a React component. No named exports are honoured. No props are passed in.
 
-## Minimum valid canvas (boilerplate the skill can emit)
+## Scaffold's default stub
+
+`scripts/invoke_scaffold.py item canvas <workflow_id>` emits a minimal stub with a TODO body and a Submit button. This is the same template the upstream `zeon_project_scaffold._scaffold._CANVAS_TSX` produces:
+
+```tsx
+import React, { useState } from "react";
+
+declare const zeon: {
+  schema: { name: string; type: string; description?: string; defaultValue?: unknown }[];
+  worldObjects: { uuid: string; name: string; displayName?: string }[];
+  defaults: Record<string, unknown>;
+  submit: (values: Record<string, unknown>) => void;
+  onValidationErrors: (cb: (errs: { path: string; message: string }[]) => void) => void;
+};
+
+export default function <PascalCase(workflow_id)>Screen() {
+  const [values, setValues] = useState<Record<string, unknown>>(() => ({ ...zeon.defaults }));
+  const [errors, setErrors] = useState<{ path: string; message: string }[]>([]);
+
+  zeon.onValidationErrors(setErrors);
+
+  // TODO: build the input UI for `<workflow_id>` here.
+  return (
+    <div style={{ fontFamily: "monospace", padding: 16 }}>
+      <div style={{ marginBottom: 12, fontWeight: "bold" }}><workflow_id></div>
+
+      {errors.length > 0 && (
+        <div style={{ color: "red", fontSize: 12, marginBottom: 8 }}>
+          {errors.map((e, i) => <div key={i}>⚠ {e.path}: {e.message}</div>)}
+        </div>
+      )}
+
+      <button onClick={() => zeon.submit(values)}>Submit</button>
+    </div>
+  );
+}
+```
+
+Use this as the starting point. Replace the TODO body with one widget per `zeon.schema` entry.
+
+## Rich-form boilerplate (skill-built)
 
 ```tsx
 import React, { useState } from "react";

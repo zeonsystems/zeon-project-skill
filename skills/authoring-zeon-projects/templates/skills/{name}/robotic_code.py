@@ -1,6 +1,4 @@
-from .modules import *
-
-OBJECT_VARIABLES = {}
+from execution.skill_editing.execution_functions import *
 
 
 def {py_name}():

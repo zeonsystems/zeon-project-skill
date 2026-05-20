@@ -46,7 +46,7 @@ NAME_RE = re.compile(r"^[a-z_][a-z0-9_-]{0,63}$")
 SKILL_ID_RE = re.compile(r"^[a-z0-9_]+$")
 WORKFLOW_ID_RE = re.compile(r"^[a-z0-9_]+$")
 NODE_ID_RE = re.compile(r"^[a-z0-9_]+$")
-EDGE_ID_RE = re.compile(r"^edge_\d+$")
+EDGE_ID_RE = re.compile(r"^e\d+$")
 VERSION_RE = re.compile(r"^\d+\.\d+\.\d+$")
 INPUT_NAME_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_]*$")
 CANVAS_REF_RE = re.compile(r"^canvas/[a-z0-9_]+\.tsx$")
@@ -151,7 +151,6 @@ def _validate_skills(root: Path, report: Report, use_pydantic: bool) -> int:
 
         meta_path = skill_dir / "metadata.yaml"
         code_path = skill_dir / "robotic_code.py"
-        modules_path = skill_dir / "modules.py"
 
         if not meta_path.is_file():
             report.err(f"skills/{skill_name}/metadata.yaml", "missing")
@@ -168,9 +167,6 @@ def _validate_skills(root: Path, report: Report, use_pydantic: bool) -> int:
                 _ast.parse(code_path.read_text(encoding="utf-8"))
             except SyntaxError as exc:
                 report.err(str(code_path), f"syntax error: {exc}")
-
-        if not modules_path.is_file():
-            report.warn(f"skills/{skill_name}/modules.py", "missing")
     return count
 
 
@@ -308,7 +304,7 @@ def _validate_workflow_graph(nodes: list, edges: list, where: str, report: Repor
             continue
         eid = edge.get("edge_id")
         if not isinstance(eid, str) or not EDGE_ID_RE.match(eid):
-            report.err(where, f"edges[{i}].edge_id violates {EDGE_ID_RE.pattern} (got {eid!r})")
+            report.err(where, f"edges[{i}].edge_id violates {EDGE_ID_RE.pattern} (got {eid!r}) — convention is e0, e1, ...")
         else:
             if eid in edge_ids:
                 report.err(where, f"duplicate edge_id: {eid}")

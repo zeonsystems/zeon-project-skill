@@ -7,7 +7,6 @@ Tier-3 operations — they touch multiple files and can break cross-references. 
 - Renaming a skill / workflow / world / object.
 - Bumping a workflow's or skill's `version`.
 - Promoting a workflow (e.g. `pick_v1` → `pick`, dropping the version suffix).
-- Migrating a workflow's edge IDs from off-spec (`e0`, `e1`) to canonical (`edge_0`, `edge_1`).
 - Any operation that touches more than one file or that the validator depends on for consistency.
 
 ## Workflow rename — worked example
@@ -40,7 +39,7 @@ Known places to check:
 
 Compute the full plan **before** writing anything.
 
-**First check whether node IDs embed the workflow ID.** The canonical convention is `<type-or-skill_id>_<workflow_id>_<index>` (`start_pick_v2_0`, `grab_pick_v2_1`), but real projects often use the short form (`start_0`, `grab_1`). Open the workflow JSON and inspect a few `node_id` values — if `<workflow_id>` does **not** appear inside them, **do NOT rewrite node IDs**. Editing `start_0` to `start_pick_0` would break edges and would not be the user's intent.
+**First check what node-ID convention the workflow uses.** The scaffold's canonical form is short, semantic names (`start`, `grab`, `end`). Some workflows use a `<role>_<index>` form (`start_0`, `platefuge_1`, `end_2`). A small number embed the workflow id (`start_<workflow>_0`). Open the workflow JSON and inspect a few `node_id` values — **only rewrite node IDs if the workflow id appears inside them**. If they're already short or just role+index, leave them alone (renaming the workflow doesn't require renaming nodes that don't carry the workflow id).
 
 Reference `references/naming-rules.md` for the canonical timestamp format when bumping `updated_at` (ISO-8601 with timezone, e.g. `2026-05-19T12:00:00.000Z`).
 
@@ -56,13 +55,13 @@ File renames:
 Edits (after rename):
   workflows/pick.json
     - workflow_id:  "pick_v2" → "pick"
-    - node_id:      "start_pick_v2_0"   → "start_pick_0"
-    - node_id:      "grab_pick_v2_1"    → "grab_pick_1"
-    - node_id:      "end_pick_v2_2"     → "end_pick_2"
-    - edge.from_node and edge.to_node:  same id substitution
     - canvas_ui.source_ref: "canvas/pick_v2_screen.tsx" → "canvas/pick_screen.tsx"
     - updated_at: bumped to <now>
     - simulation_validated: reset to false (structural change)
+    - node_ids: UNCHANGED — the workflow uses short ids (`start`, `grab`, `end`), no
+      workflow_id substring to rewrite. If your workflow uses ids like
+      `start_pick_v2_0`, then those would need to be rewritten and the edges
+      pointing at them updated — list each substitution explicitly.
 
   project.json
     - active_workflow: "pick_v2" → "pick"

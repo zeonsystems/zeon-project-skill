@@ -1,12 +1,11 @@
 # Skill schema
 
-A skill is a folder under `skills/<skill_id>/` containing three files:
+A skill is a folder under `skills/<skill_id>/` containing two files:
 
 ```
 skills/<skill_id>/
 ├── metadata.yaml      # required — Pydantic-validated
-├── robotic_code.py    # required — the actual Python implementation
-└── modules.py         # required — shim importing execution functions
+└── robotic_code.py    # required — the actual Python implementation
 ```
 
 Validated at runtime by `libraries/skill_catalog/src/skill_catalog/metadata_loader.py:155-305` (Pydantic via `SkillMetadata.model_validate`).
@@ -90,7 +89,16 @@ Docstring `Args:` block (Google style) provides descriptions; `parameter_descrip
 skill_id: my_skill
 version: "1.0.0"
 description: "What this skill does, in one sentence."
+
+parameters: []
+
+preconditions: {}
+postconditions: {}
+
+tags: []
 ```
+
+(Matches `_SKILL_METADATA` in `zeon_project_scaffold._scaffold`. The empty collections can be omitted but the scaffolder includes them for visibility.)
 
 ### Fully populated example
 
@@ -139,10 +147,8 @@ At execution time, the executor imports the module from `<project_root>/skills/<
 ### Required shape
 
 ```python
-from .modules import *
+from execution.skill_editing.execution_functions import *
 from protocol_schema import SkillObject  # if any parameter is a SkillObject
-
-OBJECT_VARIABLES = {}  # see note below
 
 
 def <skill_id>(<typed params with defaults>):
@@ -158,10 +164,9 @@ def <skill_id>(<typed params with defaults>):
 
 Notes:
 - The function name MUST match the skill_id with dashes replaced by underscores (see `naming-rules.md`).
-- `OBJECT_VARIABLES = {}` at module scope: emitted by the official scaffold template. It is a module-level slot used by the legacy parameter-binding pathway (skills that didn't yet use `SkillObject` parameters). Keep it as `{}` for new skills; the modern `SkillObject` signature pattern doesn't read from it.
+- Import execution functions **directly** from `execution.skill_editing.execution_functions`. There is no `modules.py` shim any more; the previous `from .modules import *` pattern is gone.
 - Type hints are **strongly recommended** so AST parameter inference works.
 - Return value should be a dict; `{"success": True}` for success. Failure modes vary across skills — look at neighbours if unsure.
-- Use `from .modules import *` to get execution functions and any per-skill helpers.
 - For object parameters, use `SkillObject` from `protocol_schema` (a frozen dataclass with `id: str` and `pose: List[float]` — 12-element pose).
 
 ### `SkillObject` type (from `protocol_schema.skill_io`)
@@ -188,27 +193,15 @@ The project loader places `skills/` on `sys.path` so sibling-skill imports resol
 
 This is the standard pattern for "super skills" that orchestrate sequences of smaller skills.
 
----
-
-## `modules.py`
-
-Bridges your skill to the runtime's execution functions. Almost always exactly one line:
-
-```python
-from execution.skill_editing.execution_functions import *
-```
-
-This re-exports everything in the platform's execution-functions API (motion, gripper, perception primitives) under your skill's `modules` namespace.
-
-If your skill needs additional helpers private to it, define them in `modules.py` below the import. The convention is small helpers in `modules.py`, public skill entry in `robotic_code.py`.
-
-### What's available after `import *`
+### What's available after `from execution.skill_editing.execution_functions import *`
 
 The execution-functions module's exports are project-runtime-dependent. **Do not invent function names**. When authoring a new skill:
 
 1. If the user has filled in `references/execution-functions.md`, use the functions documented there.
 2. Otherwise, check existing skills in the same project for working examples (`grep -r "def " skills/<other_skill>/robotic_code.py`).
 3. If a function you need isn't documented and isn't in any existing skill, **ask the user** rather than guessing — invented function names will fail at execution time with `NameError`.
+
+If a skill needs private helpers, define them **inside** `robotic_code.py` (above the public entry function) or import from a sibling skill's `robotic_code.py`. There is no per-skill `modules.py` to drop them into.
 
 ---
 
@@ -219,13 +212,14 @@ The execution-functions module's exports are project-runtime-dependent. **Do not
 3. `robotic_code.py` parses as Python (`ast.parse` succeeds).
 4. The function name in `robotic_code.py` matches `_py_identifier(skill_id)`.
 5. Parameter types in the signature are valid Python type hints.
-6. `modules.py` contains at least the `from execution.skill_editing.execution_functions import *` line.
+6. The file imports `from execution.skill_editing.execution_functions import *` (or a more selective import from that module).
 
 ## Common mistakes
 
 - Putting the description in `description:` as multi-paragraph prose. Keep it to one line.
 - Setting `required: true` AND providing a `default` — fails Pydantic validation.
 - Using camelCase parameter names — fails the snake_case validator.
-- Forgetting `from .modules import *` — the function will fail at execution due to missing globals.
+- Writing a per-skill `modules.py` — it's no longer part of the schema; the runtime expects `robotic_code.py` to import execution functions directly.
+- Including a top-level `OBJECT_VARIABLES = {}` slot — that pattern was retired; the new template doesn't emit it.
 - Cross-skill imports of `.robotic_code` from outside the project root — only works if `skills/` is on `sys.path` (it is, at execution time).
 - Inventing execution-function names — every invented name is a runtime crash.

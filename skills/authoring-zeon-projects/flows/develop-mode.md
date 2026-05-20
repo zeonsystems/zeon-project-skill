@@ -74,7 +74,7 @@ Other common consistency errors and remedies:
 | Workflow's `node.skill_id` references missing skill | (1) scaffold the missing skill, (2) repoint the node at an existing skill, (3) remove the node and its edges |
 | Workflow's `canvas_ui.source_ref` references missing TSX | (1) scaffold the canvas, (2) clear `canvas_ui` (fall back to auto-generated form) |
 | Conditional node has != 2 outgoing edges | Ask user; they likely want to add or remove an edge |
-| Off-spec edge_id (`e0`, `e1`, etc.) | (1) rename to `edge_<index>` (also updates references — none in practice since edges aren't referenced) |
+| Off-spec edge_id (e.g. `edge_0`, `edge_1`) | (1) rename to `e<index>` (canonical form per `^e\d+$`). Edge IDs aren't referenced elsewhere on disk, so this is a single-file edit. |
 | Duplicate node_id or edge_id | Ask user which to keep / how to disambiguate |
 
 Apply the chosen fix with T2 ceremony (diff + confirmation).

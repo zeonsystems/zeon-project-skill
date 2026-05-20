@@ -1,6 +1,6 @@
 # Flow: author a canvas
 
-A canvas is an optional custom input form for one workflow. It's a TSX file at `canvas/<canvas_id>.tsx`, referenced from the workflow's `canvas_ui` field. A workflow has at most one canvas; without one, the platform renders a standard auto-generated form.
+A canvas is an optional custom input form for one workflow. It's a TSX file at `canvas/<workflow_id>_screen.tsx`, referenced from the workflow's `canvas_ui` field. A workflow has at most one canvas; without one, the platform renders a standard auto-generated form.
 
 **Schemas**: `references/schema-canvas.md`, `references/schema-workflow.md`. Example: `examples/canvas-from-workflow-inputs.md`.
 
@@ -8,21 +8,19 @@ A canvas is an optional custom input form for one workflow. It's a TSX file at `
 
 Ask one at a time:
 
-1. **Which workflow does this canvas belong to?** Must be an existing workflow (`workflows/<id>.json`). List candidates if helpful.
-2. **`canvas_id`** — pattern `^[a-z0-9_]+$`. Convention: `<workflow_id>_screen`. Default to that unless the user overrides.
-3. **Component name** for the React export — PascalCase (e.g. `PickTargetScreen`). Default to `<CanvasId>Screen` PascalCased.
-4. **Display title** shown at the top of the form. Default to the workflow's `name` field.
-5. **Custom widgets needed?** If the user wants something beyond the default (text / number / select), ask what.
+1. **Which workflow does this canvas belong to?** Must be an existing workflow (`workflows/<id>.json`). The canvas's filename and component name are derived from the workflow id.
+2. **What inputs does the workflow have?** Run `scripts/extract_workflow_inputs.py workflows/<workflow_id>.json` and review with the user.
+3. **Custom widgets needed?** If the user wants something beyond the default (text / number / select), ask what.
 
-## Generation from workflow inputs
+## Generation
 
-1. Run `scripts/extract_workflow_inputs.py workflows/<workflow_id>.json`. Capture the inputs array.
-2. Use the `templates/canvas.tsx` template. Substitute:
-   - `{component_name}` → user-supplied PascalCase name.
-   - `{title}` → display title.
-3. The template iterates `zeon.schema` and renders widgets based on `input.type`. For most cases, the template's default widget logic is sufficient.
-4. If the user requested custom widgets, hand-author the additional JSX inside the iteration block before writing.
-5. Write `canvas/<canvas_id>.tsx`.
+1. Run `scripts/invoke_scaffold.py item canvas <workflow_id>`. The script emits a single file at `canvas/<workflow_id>_screen.tsx` containing a minimal React stub:
+   - Default-exports a component named `<PascalCase(workflow_id)>Screen`.
+   - Wires `zeon.onValidationErrors` to local state.
+   - Has a `TODO` comment in the body and a single `Submit` button calling `zeon.submit(values)`.
+2. Write the file via `Write`.
+3. Replace the TODO body with the actual form. For each entry in `zeon.schema`, render a widget matching `input.type` (see the type→widget table in `references/schema-canvas.md`).
+4. If the user wants the rich-form pattern, the elaborate example in `examples/canvas-from-workflow-inputs.md` walks through one input per row with type-switched widgets.
 
 ## Wiring the canvas into the workflow (T2)
 
@@ -33,7 +31,7 @@ After writing the TSX:
    ```json
    "canvas_ui": {
      "kind": "react",
-     "source_ref": "canvas/<canvas_id>.tsx",
+     "source_ref": "canvas/<workflow_id>_screen.tsx",
      "enabled": true,
      "version": 1,
      "updated_at": "<ISO-8601 now>"
@@ -63,7 +61,7 @@ If the user edits an existing canvas:
 
 ## Cross-reference checks
 
-- Workflow's `canvas_ui.source_ref` matches the canvas file path exactly.
+- Workflow's `canvas_ui.source_ref` matches the canvas file path exactly (`canvas/<workflow_id>_screen.tsx`).
 - The canvas widget switching on `input.type` covers every type that appears in the workflow's `inputs[]`.
 - The canvas does not depend on input names that don't appear in `inputs[]` — the canvas should iterate `zeon.schema` rather than hardcode keys.
 
@@ -75,6 +73,7 @@ If the user edits an existing canvas:
 - Calling `zeon.submit({})` with values that don't match `inputs[].name`. The submission is rejected.
 - Not bumping `canvas_ui.version` after a TSX edit. Browser may serve stale build.
 - Writing the TSX without also wiring the workflow's `canvas_ui` field — orphan canvas. The skill should always do both steps in the same session.
+- Naming the file `canvas/<id>.tsx` instead of `canvas/<workflow_id>_screen.tsx`. The `_screen` suffix is the convention; `primary_path_for` and the scaffolder both assume it.
 
 ## After writing
 

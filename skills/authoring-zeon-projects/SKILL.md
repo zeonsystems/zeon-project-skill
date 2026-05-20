@@ -23,12 +23,12 @@ Echo to the user which mode you detected and why.
 Every file-generating action goes through `scripts/invoke_scaffold.py`, which:
 
 1. Tries to import `zeon_project_scaffold._scaffold`. Searches default `sys.path`, then `$ZEON_REPO`, then common locations.
-2. If found: uses the library (single source of truth). Stderr prints `using=library`.
-3. If not found: uses the embedded `templates/` (kept in sync with the library schemas). Stderr prints `using=embedded`.
+2. If found: uses the library directly (single source of truth). Stderr prints `using=library`.
+3. If not found: uses the embedded `templates/` (kept byte-aligned with the library's current output). Stderr prints `using=embedded`.
 
 Echo `using=...` to the user so they know which path was taken.
 
-**One known divergence**: the library's `_workflow_files()` emits the older `ExecutionGraph` shape (`graph_id`, `node_type`, string `condition`). The on-disk format the gateway accepts is the **Workflow** shape (`workflow_id`, `type`, nested `condition`, `edge_<n>`). The script overrides the library's workflow template with the canonical Workflow shape from `templates/workflow.json`. See `references/schema-workflow.md` for full details.
+The two paths produce equivalent output: same fields, same field order, same shapes. See `templates/README.md` for the embedded layout and `references/schema-*.md` for each file's schema.
 
 ## Create mode (brand-new project)
 
@@ -79,11 +79,11 @@ Load these on demand — don't load all of them at once.
 |---|---|
 | Name regex / snake_case / version pattern / timestamp | `references/naming-rules.md` |
 | `project.json` | `references/schema-project.md` |
-| `metadata.yaml` + `robotic_code.py` + `modules.py` | `references/schema-skill.md` |
+| `metadata.yaml` + `robotic_code.py` | `references/schema-skill.md` |
 | `workflows/<id>.json` | `references/schema-workflow.md` |
 | `worlds/<name>/world_state.json` | `references/schema-world.md` |
 | `objects/<name>/*.urdf` + `*.object_model.yaml` | `references/schema-object.md` |
-| `canvas/<id>.tsx` | `references/schema-canvas.md` |
+| `canvas/<workflow_id>_screen.tsx` | `references/schema-canvas.md` |
 | Execution functions for skill bodies | `references/execution-functions.md` |
 
 ## Red flags — stop and re-check
@@ -93,7 +93,7 @@ These thoughts mean you're about to make something break:
 - **"I'll just make up a reasonable default for this field."** Don't. Ask the user, or leave the field absent if optional. Invented defaults (`workspace_aabb_min`, `attachment_spec.fit_type`, `collision_cache`) silently produce broken projects.
 - **"I'll use `node_type` / `graph_id` for the workflow file."** The on-disk Workflow format uses `type` / `workflow_id`. The Pydantic `ExecutionGraph` is a different layer.
 - **"This function name sounds plausible (`rotate_joint_6`, `pour_liquid`)."** If it's not in `references/execution-functions.md` or in an existing skill in this project, **don't write it**. Invented names crash at runtime.
-- **"The edge IDs in the example are `e0`, `e1`, so I'll match."** They're off-spec. The gateway enforces `^edge_\d+$`. Use `edge_0`, `edge_1`.
+- **"The edge IDs should be `edge_0`, `edge_1`."** No. The scaffold and the bundled `pick_place.json` use the short form `e0`, `e1` (regex `^e\d+$`). The earlier `edge_<n>` convention is outdated.
 - **"I'll author the `.bin` / `.npz` / `.obj` / `.stl` placeholder."** No. Binary files are produced by the scanner / live in the mesh database. The skill creates text files only.
 - **"I'll bump `version` since I changed the workflow."** Version bumps are explicit user intent. Reset `simulation_validated: false`, but only bump `version` when the user asks.
 - **"This is just a quick rename — I'll skip the change plan."** Refactors are T3. Show the plan, wait for confirmation.

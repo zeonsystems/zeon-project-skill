@@ -33,10 +33,10 @@ Ask one at a time:
 Skeleton for a linear N-skill workflow:
 
 ```
-start_<wf>_0 → skill_<a>_<wf>_1 → skill_<b>_<wf>_2 → ... → end_<wf>_N
+start → <skill_a> → <skill_b> → ... → end
 ```
 
-Node IDs follow `<type-or-skill_id>_<workflow_id>_<index>`. Edge IDs use `edge_<n>` (pattern `^edge_\d+$`, enforced).
+Node IDs are short, semantic names — `start`, `end`, plus one per skill (`grab`, `move`, `drop`, ...). Disambiguate collisions with a suffix (`grab_a`, `grab_b`). Edge IDs follow `^e\d+$` — `e0`, `e1`, `e2`, ...
 
 Edge conditions:
 - From `start`: `condition.type = "default"`.
@@ -47,13 +47,13 @@ Edge conditions:
 
 ## Generation
 
-1. Run `scripts/invoke_scaffold.py item workflow <workflow_id>`. The script returns a starter file with the canonical on-disk format (`workflow_id`, `type`, nested `condition`, `edge_0`).
+1. Run `scripts/invoke_scaffold.py item workflow <workflow_id>`. The script returns a starter file with the canonical on-disk format (`workflow_id`, `type`, nested `condition`, `e0`).
 2. Decode the base64 content.
 3. Overlay user-supplied content:
-   - Top-level `name`, `description`, `version` (default `"1.0.0"`), `author`, `created_at`/`updated_at` (now, ISO-8601).
+   - Top-level `name`, `description`, `version` (default `"1.0.0"`), `author`, `created_at`/`updated_at` (now, ISO-8601 ms).
    - `inputs[]` — one entry per user-specified input.
-   - `nodes[]` — start + each skill / conditional / loop + end. Use the long ID convention.
-   - `edges[]` — wire them up per the user's sequence. Use `edge_0`, `edge_1`, etc.
+   - `nodes[]` — start + each skill / conditional / loop + end. Use short semantic IDs.
+   - `edges[]` — wire them up per the user's sequence. Use `e0`, `e1`, etc.
    - Leave `objects: []` unless the user explicitly wants the legacy generic-object declarations.
 4. Write `workflows/<workflow_id>.json` via `Write`.
 
@@ -85,11 +85,13 @@ If the user wants to add a node, change an edge, edit parameters, etc., follow t
 
 - Using `node_type` instead of `type`. **`ExecutionGraph` shape — wrong for disk.**
 - Using `graph_id` instead of `workflow_id`. Same.
-- Edge IDs like `e0`. Use `edge_0`.
+- Edge IDs like `edge_0`. Use `e0` — the scaffold's canonical form.
+- Long node IDs like `start_<workflow>_0`. Use short semantic names (`start`, `grab`, `end`).
 - `condition: "on_success"` (string). Must be `condition: { "type": "on_success" }`.
 - Conditional node with only 1 outgoing edge (or 3+). Exactly 2, both required, with `if_true` / `if_false` (or similar bipartite split).
-- Forgetting `objects: []` field when there are no legacy objects.
+- Forgetting `objects: []` or `inputs: []` when there are no legacy objects or workflow inputs.
 - Setting `simulation_validated: true` after editing.
+- Authoring `simulation_result` / `last_simulation_timestamp` — the engine writes these.
 - Referencing skills that don't exist in the project yet. Scaffold them first or repoint the node.
 
 ## After writing

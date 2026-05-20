@@ -18,17 +18,17 @@ JSON Schema (descriptive, not enforced at runtime but matches the Pydantic): `do
 | `name` | string | yes | Display name. |
 | `description` | string | no | Detailed description. |
 | `version` | string | yes | Semantic version `^\d+\.\d+\.\d+$`. |
-| `author` | string | yes | Email or username. |
+| `author` | string | yes | Email or username. Empty string `""` is acceptable. |
 | `created_at` | ISO-8601 string | yes | Set on creation. |
 | `updated_at` | ISO-8601 string | yes | Bump on every save. |
+| `simulation_validated` | bool | no | Defaults `false`. Set `false` whenever nodes/edges/params change. |
 | `objects` | array | yes (may be `[]`) | Legacy generic object declarations. See below. |
+| `inputs` | array | yes (may be `[]`) | Workflow-level inputs. See below. |
 | `nodes` | array | yes (≥ 2) | At least 1 start + 1 end. |
 | `edges` | array | yes (≥ 1) | Connections between nodes. |
-| `inputs` | array | no | Workflow-level inputs. See below. |
 | `canvas_ui` | object | no | Custom React canvas reference. |
-| `simulation_validated` | bool | no | Defaults `false`. Set `false` whenever nodes/edges/params change. |
-| `simulation_result` | object \| null | no | Last simulation outcome. |
-| `last_simulation_timestamp` | ISO-8601 \| null | no | When the last simulation ran. |
+
+`simulation_result` and `last_simulation_timestamp` are runtime fields the engine writes after a sim run completes. Don't author them — leave them out of fresh files; the engine adds them when it has something to put there.
 
 ## `nodes[]`
 
@@ -68,7 +68,8 @@ Required: `skill_id`, `parameters`.
 
 `parameters` keys are the skill's parameter names. Each value is one of:
 - **Input reference**: `{"$input": "<input_name>"}` — resolved at execution time from `inputs[]`.
-- **Object reference**: `{"alias": "<obj_alias>", "offset": {"xyz": [x,y,z], "wxyz": [w,x,y,z]}}` — refers to an entry in `objects[]` with optional position/rotation offset.
+- **World-object reference (by instance id)**: `{"object_ref": "<instance_id>"}` — references a specific instance in the active world's `world_state.json` `objects` map (the key includes the UUID, e.g. `bottle_35582ed6-be64-4e11-81d1-843e9bed5502`). This is the form the bundled `pick_place.json` example uses.
+- **Object reference (alias + offset)**: `{"alias": "<obj_alias>", "offset": {"xyz": [x,y,z], "wxyz": [w,x,y,z]}}` — refers to an entry in `objects[]` with optional position/rotation offset.
 - **Literal**: any JSON primitive (string, number, bool) or container — passed directly to the skill function.
 
 `retry` is optional and overrides the default retry count for this node.
@@ -114,21 +115,22 @@ Conditional nodes must have exactly 2 outgoing edges with `condition.type` value
 
 ### Node ID convention
 
-Canonical pattern (used by the frontend transformer and the gateway): `<type-or-skill_id>_<workflow_id>_<index>`.
+Short, semantic names per role — `start`, `end`, plus one per skill or branch (`grab`, `move`, `drop`, `branch`, etc.). This matches what `zeon_project_scaffold._scaffold._workflow_files` emits and what the bundled `pick_place.json` example uses.
 
-Examples (workflow `pick_place`):
-- `start_pick_place_0`
-- `pick_object_pick_place_1`
-- `place_object_pick_place_2`
-- `end_pick_place_3`
+Example (workflow `pick_place`):
+- `start`
+- `grab`
+- `move`
+- `drop`
+- `end`
 
-The loader only enforces the regex `^[a-z0-9_]+$`. Shorter ids (`start_0`, `pick_1`) work too — pick a style and stay consistent.
+The loader only enforces the regex `^[a-z0-9_]+$`. Disambiguate collisions with a suffix (`grab_a`, `grab_b`). Avoid embedding the workflow id in node ids.
 
 ## `edges[]`
 
 ```json
 {
-  "edge_id": "edge_<index>",
+  "edge_id": "e<index>",
   "from_node": "<existing node_id>",
   "to_node": "<existing node_id>",
   "condition": { "type": "<see below>" }
@@ -137,7 +139,7 @@ The loader only enforces the regex `^[a-z0-9_]+$`. Shorter ids (`start_0`, `pick
 
 | Field | Constraint |
 |---|---|
-| `edge_id` | Pattern `^edge_\d+$` — **enforced**. Don't use `e0`, `e1` etc. |
+| `edge_id` | Pattern `^e\d+$`. The scaffold emits `e0, e1, ...`. |
 | `from_node` | Must exist in `nodes[]`. |
 | `to_node` | Must exist in `nodes[]`. |
 | `condition.type` | See condition types below. |
@@ -248,20 +250,23 @@ The skill must run these checks before writing — broken workflows are silent d
 {
   "workflow_id": "hello",
   "name": "Hello",
+  "description": "",
   "version": "1.0.0",
-  "author": "user",
-  "created_at": "2026-05-19T12:00:00.000Z",
-  "updated_at": "2026-05-19T12:00:00.000Z",
+  "author": "",
+  "created_at": "2026-05-20T12:00:00.000Z",
+  "updated_at": "2026-05-20T12:00:00.000Z",
+  "simulation_validated": false,
   "objects": [],
+  "inputs": [],
   "nodes": [
-    { "node_id": "start_hello_0", "type": "start", "label": "Start" },
-    { "node_id": "wave_hello_1",  "type": "skill", "label": "Wave",
+    { "node_id": "start", "type": "start", "label": "Start" },
+    { "node_id": "wave",  "type": "skill", "label": "Wave",
       "skill_id": "wave", "parameters": {} },
-    { "node_id": "end_hello_2",   "type": "end", "label": "End" }
+    { "node_id": "end",   "type": "end", "label": "End" }
   ],
   "edges": [
-    { "edge_id": "edge_0", "from_node": "start_hello_0", "to_node": "wave_hello_1", "condition": { "type": "default" } },
-    { "edge_id": "edge_1", "from_node": "wave_hello_1",  "to_node": "end_hello_2",  "condition": { "type": "on_success" } }
+    { "edge_id": "e0", "from_node": "start", "to_node": "wave", "condition": { "type": "default" } },
+    { "edge_id": "e1", "from_node": "wave",  "to_node": "end",  "condition": { "type": "on_success" } }
   ]
 }
 ```
@@ -271,9 +276,11 @@ The skill must run these checks before writing — broken workflows are silent d
 - Using `node_type` instead of `type` on nodes. **This is `ExecutionGraph` shape, not on-disk.**
 - Using `graph_id` instead of `workflow_id`. Same — on-disk uses `workflow_id`.
 - `condition: "on_success"` (string). On-disk it must be `condition: { "type": "on_success" }` (object).
-- Edge IDs like `e0`, `e1`. Use `edge_0`, `edge_1` (regex enforced).
-- Forgetting `objects: []`. The field is required even when empty.
+- Edge IDs like `edge_0`, `edge_1`. Use `e0`, `e1` — the scaffold's canonical form.
+- Long node IDs like `start_<workflow>_0`. Use short semantic names (`start`, `grab`, `end`).
+- Forgetting `objects: []` or `inputs: []`. Both fields are required even when empty.
 - Skipping `version` or `created_at`. Both are required.
 - Setting `simulation_validated: true` after editing nodes/edges. Reset to `false` on any structural change.
+- Authoring `simulation_result` / `last_simulation_timestamp` in a fresh file. The engine writes them after a run.
 - Mixing input-reference shapes: `{"$input": "name"}` is correct; `{"input": "name"}` and `$name` are wrong.
 - Including conditional outgoing edges with `condition.type = "default"`. Conditional nodes need `if_true`/`if_false` (or whatever the user's executor accepts) — not `default`.

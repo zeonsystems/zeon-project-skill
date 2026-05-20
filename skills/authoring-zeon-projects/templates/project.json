@@ -1,6 +1,9 @@
 {
   "name": "",
   "description": "",
-  "active_workflow": "",
-  "active_world": ""
+  "created_at": "{now}",
+  "updated_at": "{now}",
+  "archived": false,
+  "active_workflow": "pick_place",
+  "active_world": "bowl_bottle"
 }

@@ -3,19 +3,32 @@
   "name": "{name}",
   "description": "",
   "version": "1.0.0",
-  "author": "user",
+  "author": "",
   "created_at": "{now}",
   "updated_at": "{now}",
   "simulation_validated": false,
-  "simulation_result": null,
-  "last_simulation_timestamp": null,
   "objects": [],
   "inputs": [],
   "nodes": [
-    { "node_id": "start_{name}_0", "type": "start", "label": "Start" },
-    { "node_id": "end_{name}_1", "type": "end", "label": "End" }
+    {
+      "node_id": "start",
+      "type": "start",
+      "label": "Start"
+    },
+    {
+      "node_id": "end",
+      "type": "end",
+      "label": "End"
+    }
   ],
   "edges": [
-    { "edge_id": "edge_0", "from_node": "start_{name}_0", "to_node": "end_{name}_1", "condition": { "type": "default" } }
+    {
+      "edge_id": "e0",
+      "from_node": "start",
+      "to_node": "end",
+      "condition": {
+        "type": "default"
+      }
+    }
   ]
 }

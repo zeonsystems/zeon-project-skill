@@ -1,72 +1,64 @@
-# Example: linear workflow (start → skill → end)
+# Example: linear workflow (single skill)
 
-The simplest non-trivial workflow shape. One input passed from the workflow level into a skill node, one skill, one end.
+This is the real `test_platefuge.json` workflow from the `golden-gate-assembly` project. Minimal shape: start → one skill → end, with three `inputs` (two objects + one number) and parameter-binding via `{"$input": ...}`.
 
-## `workflows/wave_hello.json`
+Source: `golden-gate-assembly-mp6n1k2x/workflows/test_platefuge.json`.
+
+## `workflows/test_platefuge.json`
 
 ```json
 {
-  "workflow_id": "wave_hello",
-  "name": "Wave Hello",
-  "description": "Wave to a selected target object.",
+  "workflow_id": "test_platefuge",
+  "name": "Test Platefuge",
+  "description": "Minimal test: pick reaction plate → load rotor → spin → unload → place.",
   "version": "1.0.0",
-  "author": "user",
-  "created_at": "2026-05-19T12:00:00.000Z",
-  "updated_at": "2026-05-19T12:00:00.000Z",
+  "author": "bkolar",
+  "created_at": "2026-05-16T00:00:00.000Z",
+  "updated_at": "2026-05-16T00:00:00.000Z",
   "simulation_validated": false,
-  "simulation_result": null,
-  "last_simulation_timestamp": null,
   "objects": [],
   "inputs": [
-    {
-      "name": "target",
-      "type": "object",
-      "description": "Who to wave at.",
-      "is_array": false
-    }
+    { "name": "reaction_plate",  "type": "object", "is_array": false, "description": "Wellplate to spin" },
+    { "name": "wellplate_stand", "type": "object", "is_array": false, "description": "Stand to return plate to after spin" },
+    { "name": "spin_duration",   "type": "float",  "description": "Spin time in seconds", "defaultValue": 10 }
   ],
   "nodes": [
-    { "node_id": "start_wave_hello_0", "type": "start", "label": "Start" },
+    { "node_id": "start_0", "type": "start", "label": "Start" },
     {
-      "node_id": "wave_wave_hello_1",
+      "node_id": "platefuge_1",
       "type": "skill",
-      "label": "Wave",
-      "skill_id": "wave",
+      "label": "Run Platefuge",
+      "skill_id": "run_platefuge",
       "parameters": {
-        "target": { "$input": "target" }
+        "object":          { "$input": "reaction_plate" },
+        "wellplate_stand": { "$input": "wellplate_stand" },
+        "slot_index":      1,
+        "spin_duration":   { "$input": "spin_duration" }
       }
     },
-    { "node_id": "end_wave_hello_2", "type": "end", "label": "End" }
+    { "node_id": "end_2", "type": "end", "label": "End" }
   ],
   "edges": [
-    {
-      "edge_id": "edge_0",
-      "from_node": "start_wave_hello_0",
-      "to_node": "wave_wave_hello_1",
-      "condition": { "type": "default" }
-    },
-    {
-      "edge_id": "edge_1",
-      "from_node": "wave_wave_hello_1",
-      "to_node": "end_wave_hello_2",
-      "condition": { "type": "on_success" }
-    }
+    { "edge_id": "e0", "from_node": "start_0",     "to_node": "platefuge_1", "condition": { "type": "default" } },
+    { "edge_id": "e1", "from_node": "platefuge_1", "to_node": "end_2",       "condition": { "type": "on_success" } }
   ]
 }
 ```
 
-## Things to note
+## Patterns to learn from
 
-- `workflow_id` matches the filename stem.
-- `type` field on nodes (not `node_type`).
-- Edge IDs `edge_0`, `edge_1` (regex `^edge_\d+$`).
-- Start node's outgoing edge has `condition.type = "default"`; skill node's outgoing edge has `"on_success"`.
-- Node IDs use the long convention `<type-or-skill_id>_<workflow_id>_<index>`.
-- `inputs[].name = "target"` matches the `{"$input": "target"}` reference in the skill node's parameters.
-- `simulation_validated` resets to `false` because the workflow changed.
+- **`workflow_id` matches the filename stem** — both `test_platefuge`.
+- **`type` field** on nodes (not `node_type`).
+- **Edge IDs `e0`, `e1`** (regex `^e\d+$`).
+- **Node IDs** here use a `<role>_<index>` form (`start_0`, `platefuge_1`, `end_2`) — also valid. The scaffold's own default workflow uses bare role names (`start`, `grab`, `end`). Either form works as long as the regex `^[a-z0-9_]+$` holds.
+- **`condition.type = "default"`** on the start edge; `"on_success"` for the normal continue.
+- **`objects: []` and `inputs: [...]` both present** — `objects` may be empty but the field must exist.
+- **Three input types shown**: two `object` inputs (resolved by the user/canvas to specific world-object UUIDs) and one `float` with `defaultValue: 10`.
+- **Parameter binding**: three keys use `{"$input": "name"}` to draw from the workflow's inputs; one (`slot_index`) is a JSON literal `1`.
+- **`description` field at node level** would also be allowed (this example omits it on the skill node).
 
 ## Cross-references the skill must verify
 
-- `skills/wave/` exists in the project.
-- `skills/wave/robotic_code.py` defines `def wave(target)` (or `def wave(target, ...)` with `target` required).
-- The `wave` function expects a `SkillObject` (or compatible) for `target`.
+- `skills/run_platefuge/` exists in the project.
+- `skills/run_platefuge/robotic_code.py` defines `def run_platefuge(object, wellplate_stand, slot_index=..., spin_duration=...)` — parameter names must match.
+- The workflow's `inputs[].name` values (`reaction_plate`, `wellplate_stand`, `spin_duration`) are referenced from `parameters` via `{"$input": "..."}`.

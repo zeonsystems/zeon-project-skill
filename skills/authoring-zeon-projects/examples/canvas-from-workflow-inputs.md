@@ -1,20 +1,12 @@
-# Example: generating a canvas from a workflow's inputs
+# Example: canvas for a real workflow
 
-When a workflow has `inputs[]` and the user wants a bespoke form, generate the TSX from the inputs schema. The widgets map directly from `input.type`.
+This is the real `golden_gate_assembly_v2_screen.tsx` canvas from the `golden-gate-assembly` project. It renders a custom input form for `golden_gate_assembly_v2.json` (15 inputs — see `examples/workflow-rich.md`).
 
-## Source workflow inputs
+Sources:
+- `golden-gate-assembly-mp6n1k2x/canvas/golden_gate_assembly_v2_screen.tsx`
+- `golden-gate-assembly-mp6n1k2x/workflows/golden_gate_assembly_v2.json` (the workflow this canvas attaches to)
 
-From `workflows/pick_target.json`:
-
-```json
-"inputs": [
-  { "name": "target",    "type": "object", "description": "Object to pick.",         "is_array": false },
-  { "name": "force_n",   "type": "float",  "description": "Grip force in Newtons.",  "default_value": 50.0 },
-  { "name": "verify",    "type": "string", "description": "Run a verification pass after pick (yes/no).", "default_value": "no" }
-]
-```
-
-## Generated `canvas/pick_target_screen.tsx`
+## `canvas/golden_gate_assembly_v2_screen.tsx`
 
 ```tsx
 import React, { useState } from "react";
@@ -27,14 +19,13 @@ declare const zeon: {
   onValidationErrors: (cb: (errs: { path: string; message: string }[]) => void) => void;
 };
 
-export default function PickTargetScreen() {
+export default function GoldenGateAssemblyV2Screen() {
   const [values, setValues] = useState<Record<string, unknown>>(() => ({ ...zeon.defaults }));
   const [errors, setErrors] = useState<{ path: string; message: string }[]>([]);
 
   zeon.onValidationErrors(setErrors);
 
-  const set = (name: string, val: unknown) =>
-    setValues((v) => ({ ...v, [name]: val }));
+  const set = (name: string, val: unknown) => setValues((v) => ({ ...v, [name]: val }));
 
   const s: React.CSSProperties = {
     width: "100%", padding: "5px 7px", fontSize: 13,
@@ -43,7 +34,7 @@ export default function PickTargetScreen() {
 
   return (
     <div style={{ fontFamily: "monospace", padding: 16, maxWidth: 480 }}>
-      <div style={{ marginBottom: 12, fontWeight: "bold" }}>Pick Target</div>
+      <div style={{ marginBottom: 12, fontWeight: "bold" }}>Golden Gate Assembly v2</div>
 
       {zeon.schema.map((input) => {
         const val = values[input.name];
@@ -62,17 +53,29 @@ export default function PickTargetScreen() {
                   ))}
                 </select>
               ) : (
-                <input type="text" placeholder="object name / id"
-                  value={String(val ?? "")} onChange={(e) => set(input.name, e.target.value)} style={s} />
+                <input
+                  type="text"
+                  placeholder="object name / id"
+                  value={String(val ?? "")}
+                  onChange={(e) => set(input.name, e.target.value)}
+                  style={s}
+                />
               )
             ) : input.type === "string" ? (
-              <input type="text"
-                value={String(val ?? "")} onChange={(e) => set(input.name, e.target.value)} style={s} />
+              <input
+                type="text"
+                value={String(val ?? "")}
+                onChange={(e) => set(input.name, e.target.value)}
+                style={s}
+              />
             ) : (
-              <input type="number" step="any"
+              <input
+                type="number"
+                step="any"
                 value={val === undefined || val === "" ? "" : Number(val)}
                 onChange={(e) => set(input.name, e.target.value === "" ? "" : Number(e.target.value))}
-                style={s} />
+                style={s}
+              />
             )}
           </div>
         );
@@ -99,35 +102,44 @@ export default function PickTargetScreen() {
 }
 ```
 
-## Wiring it into the workflow
+## Wiring in the workflow
 
-Update `workflows/pick_target.json`:
+`workflows/golden_gate_assembly_v2.json` ends with:
 
 ```json
 "canvas_ui": {
   "kind": "react",
-  "source_ref": "canvas/pick_target_screen.tsx",
+  "source_ref": "canvas/golden_gate_assembly_v2_screen.tsx",
   "enabled": true,
-  "version": 1,
-  "updated_at": "2026-05-19T12:00:00.000Z"
+  "version": 2,
+  "updated_at": "2026-05-16T00:00:00.000Z"
 }
 ```
 
-## Type → widget map
+## Patterns to learn from
 
-| `input.type` | Widget |
-|---|---|
-| `string` | `<input type="text">` |
-| `int` | `<input type="number" step="1">` |
-| `float` | `<input type="number" step="any">` |
-| `object` | `<select>` from `zeon.worldObjects` (or text input fallback) |
-| `structured` | JSON textarea — flag to user that a richer renderer would help |
+- **Default-exported function component** named `GoldenGateAssemblyV2Screen` (PascalCase + `Screen` suffix — convention matches `_pascal_case(workflow_id) + "Screen"`).
+- **Imports only `react`** — `useState` plus the default. No other libraries (sandbox blocks them).
+- **`declare const zeon: {...}`** is the TypeScript shape of the host-injected global. The actual runtime injects this; the `declare` is just for the type checker.
+- **Iterates `zeon.schema`** rather than hardcoding input names. When the workflow's `inputs` change, the canvas adapts.
+- **Per-`input.type` widget dispatch**:
+  - `"object"` → `<select>` over `zeon.worldObjects` if non-empty, else text input fallback.
+  - `"string"` → plain text input.
+  - default (covers `"int"`, `"float"`, etc.) → `<input type="number" step="any">`.
+- **`title={input.description}`** on each label — surfaces the workflow input's description as a tooltip.
+- **Submit button calls `zeon.submit(values)`** — that's all it takes to launch the workflow. The host validates `values` against the workflow's inputs schema before starting the graph.
+- **`zeon.onValidationErrors(setErrors)`** wires server-side validation errors back into the form.
+- **Inline styles via `style={{ ... }}`** — no external CSS, the sandbox doesn't load stylesheets.
 
-For `is_array: true`, add a small list editor (add row / remove row); the boilerplate above doesn't include one.
+## When to author a custom canvas vs use the auto-form
 
-## Things to verify
+- **Custom**: when the user wants a specific layout, grouping, or value-derivation logic for inputs.
+- **Auto-form**: when you just need each `inputs[]` entry collected — set `canvas_ui.enabled: false` or remove the `canvas_ui` block entirely and the platform renders a default form.
 
-- The component name is unique and PascalCase (e.g. `PickTargetScreen`). It must not collide with React reserved names.
-- The `source_ref` filename matches the actual file on disk.
-- The workflow's `canvas_ui.version` is `1` for a new canvas, or bumped for an update.
-- The TSX imports `react` only — no other libraries allowed in the sandbox.
+## What the skill must do when generating a canvas
+
+1. Run `scripts/invoke_scaffold.py item canvas <workflow_id>` — emits the minimal stub at `canvas/<workflow_id>_screen.tsx` with a `TODO` body.
+2. Read the workflow's `inputs[]` via `scripts/extract_workflow_inputs.py`.
+3. Replace the TODO body with the iteration shown above (or a custom layout the user asked for).
+4. Edit the workflow JSON to add `canvas_ui` pointing at the new TSX file (T2 operation: diff + confirmation).
+5. Bump `canvas_ui.version` on every subsequent edit.

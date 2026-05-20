@@ -1,6 +1,6 @@
 # Flow: author a new skill
 
-A skill is a unit of robotic work. Three files in `skills/<skill_id>/`: `metadata.yaml`, `robotic_code.py`, `modules.py`.
+A skill is a unit of robotic work. Two files in `skills/<skill_id>/`: `metadata.yaml` and `robotic_code.py`.
 
 **Schemas**: `references/schema-skill.md`, `references/naming-rules.md`, `references/execution-functions.md`.
 
@@ -30,13 +30,14 @@ Ask ONE question at a time. Don't bundle.
 
 ## Generation
 
-1. Run `scripts/invoke_scaffold.py item skill <skill_id>`. Capture the file map.
+1. Run `scripts/invoke_scaffold.py item skill <skill_id>`. Capture the file map (two files: `metadata.yaml` + `robotic_code.py`).
 2. Decode the base64 contents.
 3. Overlay user-provided fields on the templates:
    - `metadata.yaml`: fill `description`, `parameters` (only if the user wants explicit declarations rather than AST inference), `preconditions`, `postconditions`, `tags`, `high_risk`.
    - `robotic_code.py`: replace the stub body with the user-approved implementation. Update the function signature with typed parameters. Update the docstring `Args:` block.
-   - `modules.py`: usually unchanged. If the skill needs private helpers, append them below the import.
 4. Write the files via `Write` (new files; no need for `Edit`).
+
+Private helpers belong inside `robotic_code.py` (above the public function) or in a sibling skill imported via `from <peer>.robotic_code import <peer>`. There is no `modules.py`.
 
 ## Decisions you must NOT make alone
 
@@ -64,7 +65,8 @@ Ask ONE question at a time. Don't bundle.
 - Adding parameters to `metadata.yaml` AND the function signature inconsistently (e.g. AST says one set, YAML says another). Pick one source of truth; prefer the function signature.
 - Using `SkillObject` for non-world-object parameters (a wellplate row index, a volume — use `int` / `float`).
 - Setting `required: true` while also providing `default`. Validation fails.
-- Forgetting `from .modules import *` at the top of robotic_code.py. The function will have no access to execution functions at runtime.
+- Forgetting `from execution.skill_editing.execution_functions import *` at the top of robotic_code.py. The function will have no access to execution functions at runtime.
+- Writing a `modules.py` next to `robotic_code.py`. Not part of the schema any more — the runtime does not look for it.
 
 ## After writing
 

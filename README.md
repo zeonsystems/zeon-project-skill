@@ -7,11 +7,13 @@ Zeon projects have a strict layout:
 ```
 my-project/
 ├── project.json
+├── CLAUDE.md
 ├── canvas/   data/   docs/   scripts/   (optional, populated as needed)
 ├── objects/<name>/{<name>.urdf, <name>.object_model.yaml}
-├── skills/<id>/{metadata.yaml, robotic_code.py, modules.py}
+├── skills/<id>/{metadata.yaml, robotic_code.py}
 ├── workflows/<id>.json
-└── worlds/<name>/world_state.json
+├── worlds/<name>/world_state.json
+└── canvas/<workflow_id>_screen.tsx       (optional, per workflow)
 ```
 
 This skill guarantees every file matches the canonical schema by:
@@ -64,9 +66,7 @@ The skill checks for `zeon_project_scaffold` in this order:
 3. Common locations: `~/code/everything-prototype-containers`, `~/GitHub/ZeonSystems/everything-prototype-containers`, etc.
 4. A neighbour of the current directory containing `libraries/zeon_project_scaffold/`.
 
-If none of these resolves, the skill uses the bundled templates and schema reference under `skills/authoring-zeon-projects/`.
-
-When the library is available, its `workflows/*.json` output is transformed into the canonical on-disk Workflow format (the library currently emits the older `ExecutionGraph` shape; the gateway loader expects the Workflow shape). All other items pass through unchanged. The transformation runs in `scripts/invoke_scaffold.py`.
+If none of these resolves, the skill uses the bundled templates and schema reference under `skills/authoring-zeon-projects/`. The embedded templates are byte-aligned with the library's current output — same fields, same field order, same shapes. Set `ZEON_FORCE_EMBEDDED=1` to skip the library probe entirely (useful for testing the fallback path).
 
 ## What's in this repo
 
@@ -78,8 +78,8 @@ zeon-project-skill/
     ├── SKILL.md            # entry point + create-mode flow + red flags
     ├── flows/              # develop-mode + per-item authoring + refactor
     ├── references/         # canonical schemas for every file type
-    ├── templates/          # embedded fallback templates
-    ├── examples/           # distilled, generic examples
+    ├── templates/          # embedded fallback templates (mirrors scaffold)
+    ├── examples/           # real items from the scaffold + golden-gate project
     └── scripts/            # detect / scaffold / validate / extract_inputs
 ```
 

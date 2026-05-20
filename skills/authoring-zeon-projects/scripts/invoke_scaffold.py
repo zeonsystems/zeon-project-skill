@@ -18,7 +18,9 @@ Usage:
     invoke_scaffold.py default            # full default project
     invoke_scaffold.py <kind> <name>      # one new item
 
-    <kind> is one of: skill, workflow, world, object.
+    <kind> is one of: skill, workflow, world, object, canvas.
+    For canvas, <name> is the workflow_id the canvas attaches to —
+    the output file is ``canvas/<workflow_id>_screen.tsx``.
 
 Exit codes:
     0 success
@@ -47,7 +49,7 @@ TEMPLATES_DIR = SKILL_ROOT / "templates"
 # Mirrors `zeon_project_scaffold._scaffold._NAME_RE`.
 NAME_RE = re.compile(r"^[a-z_][a-z0-9_-]{0,63}$")
 
-ITEM_KINDS = ("skill", "workflow", "world", "object")
+ITEM_KINDS = ("skill", "workflow", "world", "object", "canvas")
 
 
 def _emit(pairs: Iterable[tuple[str, bytes]]) -> None:
@@ -73,13 +75,25 @@ def _py_identifier(name: str) -> str:
     return name.replace("-", "_")
 
 
+def _pascal_case(name: str) -> str:
+    parts = re.split(r"[_\-]+", name)
+    return "".join(p[:1].upper() + p[1:] for p in parts if p)
+
+
 # ----------------------------------------------------------------------------
 # Library probe + invocation
 # ----------------------------------------------------------------------------
 
 
 def _probe_library() -> Optional[object]:
-    """Try to import ``zeon_project_scaffold._scaffold``. Returns the module on success."""
+    """Try to import ``zeon_project_scaffold._scaffold``. Returns the module on success.
+
+    Set ``ZEON_FORCE_EMBEDDED=1`` to skip the probe entirely — useful for tests
+    that want to exercise the embedded fallback even when the library is on disk.
+    """
+    if os.environ.get("ZEON_FORCE_EMBEDDED") == "1":
+        return None
+
     # Direct import (already on PYTHONPATH).
     try:
         from zeon_project_scaffold import _scaffold  # type: ignore  # noqa: F401
@@ -140,7 +154,15 @@ def _format(content: str, **subs: str) -> str:
 
 
 def _now_iso() -> str:
-    return dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+    """Millisecond-precision UTC ISO-8601 timestamp with Z suffix.
+
+    Matches `zeon_project_scaffold._scaffold._now_iso_ms()`.
+    """
+    return (
+        dt.datetime.now(dt.timezone.utc)
+        .isoformat(timespec="milliseconds")
+        .replace("+00:00", "Z")
+    )
 
 
 def _emit_embedded_item(kind: str, name: str) -> Iterator[tuple[str, bytes]]:
@@ -154,10 +176,6 @@ def _emit_embedded_item(kind: str, name: str) -> Iterator[tuple[str, bytes]]:
         yield (
             f"{base}/robotic_code.py",
             _format(_read_template("skills/{name}/robotic_code.py"), name=name, py_name=py_name).encode(),
-        )
-        yield (
-            f"{base}/modules.py",
-            _read_template("skills/{name}/modules.py").encode(),
         )
         return
 
@@ -187,129 +205,68 @@ def _emit_embedded_item(kind: str, name: str) -> Iterator[tuple[str, bytes]]:
         )
         return
 
+    if kind == "canvas":
+        component = _pascal_case(name) + "Screen"
+        yield (
+            f"canvas/{name}_screen.tsx",
+            _format(
+                _read_template("canvas/{workflow_id}_screen.tsx"),
+                workflow_id=name,
+                component=component,
+            ).encode(),
+        )
+        return
+
     raise SystemExit(f"unknown kind: {kind!r}")
 
 
 def _emit_embedded_default_project() -> Iterator[tuple[str, bytes]]:
-    yield "project.json", _read_template("project.json").encode()
-    # Empty stubs for the standard subfolders. The skill prompts the user to
-    # populate them.
-    for folder in ("canvas", "data", "docs", "objects", "scripts", "skills", "workflows", "worlds"):
-        yield f"{folder}/.gitkeep", b""
-    yield "canvas/README.md", _read_template("canvas/README.md").encode()
+    """Walk the embedded ``templates/`` tree and yield every file, mirroring
+    what ``zeon_project_scaffold._scaffold.iter_default_project_files`` does
+    with its bundled ``templates/default/`` tree.
 
-
-# ----------------------------------------------------------------------------
-# ExecutionGraph -> Workflow format converter
-# ----------------------------------------------------------------------------
-#
-# The bundled scaffold library currently emits workflow files in the older
-# ExecutionGraph shape (graph_id, node_type, string condition, e<n> edge ids).
-# The gateway loader expects the on-disk Workflow shape (workflow_id, type,
-# nested condition, edge_<n>). This function converts in-place so any workflow
-# file emitted by the library lands on disk in the format the runtime accepts.
-
-
-_CONDITION_STRING_TO_OBJECT = {
-    "unconditional": {"type": "default"},
-    "on_success": {"type": "on_success"},
-    "on_failure": {"type": "on_failure"},
-    "if_true": {"type": "if_true"},
-    "if_false": {"type": "if_false"},
-    "loop_body": {"type": "loop_continue"},
-    "loop_exit": {"type": "loop_complete"},
-    "retry_body": {"type": "on_success"},
-    "retry_exhausted": {"type": "on_failure"},
-}
-
-
-def _convert_workflow_eg_to_disk(data: dict, fallback_id: str) -> dict:
-    """Rewrite an ExecutionGraph-shaped workflow dict to the on-disk Workflow shape.
-
-    Idempotent: if `data` already looks like Workflow (workflow_id, type, etc.),
-    only the missing required fields are added.
+    Skips:
+      - the meta ``templates/README.md`` (docs about the templates folder)
+      - any path containing a ``{placeholder}`` segment (those are item
+        templates used by :func:`_emit_embedded_item`, not part of the
+        default project).
     """
-    out: dict = {}
-
-    workflow_id = data.get("workflow_id") or data.get("graph_id") or fallback_id
-    if not isinstance(workflow_id, str) or not workflow_id:
-        workflow_id = fallback_id
-    out["workflow_id"] = workflow_id
-    out["name"] = data.get("name", workflow_id)
-    if "description" in data:
-        out["description"] = data["description"]
-    out["version"] = data.get("version", "1.0.0")
-    out["author"] = data.get("author", "user")
     now = _now_iso()
-    out["created_at"] = data.get("created_at", now)
-    out["updated_at"] = data.get("updated_at", now)
-    out["simulation_validated"] = bool(data.get("simulation_validated", False))
-    out["simulation_result"] = data.get("simulation_result")
-    out["last_simulation_timestamp"] = data.get("last_simulation_timestamp")
-    out["objects"] = data.get("objects") if isinstance(data.get("objects"), list) else []
-    if "inputs" in data:
-        out["inputs"] = data["inputs"]
-    if "canvas_ui" in data:
-        out["canvas_ui"] = data["canvas_ui"]
-
-    nodes_out: list[dict] = []
-    for node in data.get("nodes", []):
-        if not isinstance(node, dict):
+    placeholder = re.compile(r"\{[a-z_]+\}")
+    for path in sorted(TEMPLATES_DIR.rglob("*")):
+        if not path.is_file():
             continue
-        n: dict = {}
-        n["node_id"] = node.get("node_id")
-        n["type"] = node.get("type") or node.get("node_type")
-        meta = node.get("metadata") or {}
-        if isinstance(meta, dict) and "label" in meta:
-            n["label"] = meta["label"]
-        elif "label" in node:
-            n["label"] = node["label"]
-        else:
-            n["label"] = n["node_id"] or ""
-        for key in ("description", "skill_id", "parameters", "retry", "loop", "condition"):
-            if key in node and node[key] is not None:
-                n[key] = node[key]
-        nodes_out.append(n)
-    out["nodes"] = nodes_out
-
-    edges_out: list[dict] = []
-    for i, edge in enumerate(data.get("edges", [])):
-        if not isinstance(edge, dict):
+        rel = path.relative_to(TEMPLATES_DIR).as_posix()
+        if rel == "README.md":
             continue
-        e: dict = {}
-        eid = edge.get("edge_id")
-        if not (isinstance(eid, str) and re.match(r"^edge_\d+$", eid)):
-            e["edge_id"] = f"edge_{i}"
-        else:
-            e["edge_id"] = eid
-        e["from_node"] = edge.get("from_node")
-        e["to_node"] = edge.get("to_node")
-        cond = edge.get("condition")
-        if isinstance(cond, dict):
-            e["condition"] = cond
-        elif isinstance(cond, str):
-            e["condition"] = _CONDITION_STRING_TO_OBJECT.get(cond, {"type": cond})
-        else:
-            e["condition"] = {"type": "on_success"}
-        edges_out.append(e)
-    out["edges"] = edges_out
-
-    return out
+        if placeholder.search(rel):
+            continue
+        content = path.read_bytes()
+        if rel == "project.json":
+            content = _format(content.decode("utf-8"), now=now).encode()
+        yield rel, content
 
 
-def _maybe_convert_library_workflow(path: str, content: bytes) -> bytes:
-    """If `path` is a workflow JSON, convert ExecutionGraph shape -> on-disk Workflow shape."""
-    if not path.startswith("workflows/") or not path.endswith(".json"):
-        return content
-    try:
-        data = json.loads(content.decode("utf-8"))
-    except (UnicodeDecodeError, json.JSONDecodeError):
-        return content
-    if not isinstance(data, dict):
-        return content
-    fallback_id = Path(path).stem
-    converted = _convert_workflow_eg_to_disk(data, fallback_id)
-    return (json.dumps(converted, indent=2) + "\n").encode("utf-8")
+# ----------------------------------------------------------------------------
+# Primary path lookup (matches `zeon_project_scaffold._scaffold.primary_path_for`).
+# Exposed for the skill flows that want to tell the user which file to open
+# after a fresh item is created.
+# ----------------------------------------------------------------------------
+
+
+def primary_path_for(kind: str, name: str) -> str:
+    _validate_name(name)
+    if kind == "skill":
+        return f"skills/{name}/robotic_code.py"
+    if kind == "workflow":
+        return f"workflows/{name}.json"
+    if kind == "world":
+        return f"worlds/{name}/world_state.json"
+    if kind == "object":
+        return f"objects/{name}/{name}.object_model.yaml"
+    if kind == "canvas":
+        return f"canvas/{name}_screen.tsx"
+    raise SystemExit(f"unknown kind: {kind!r}")
 
 
 # ----------------------------------------------------------------------------
@@ -347,31 +304,14 @@ def main(argv: list[str]) -> int:
         if args.cmd == "default":
             if use_library:
                 raw_pairs = list(library.iter_default_project_files())  # type: ignore[attr-defined]
-                pairs = []
-                converted_any = False
-                dropped_legacy = False
-                for path, content in raw_pairs:
-                    # `inputs/` is deprecated and absent from current projects;
-                    # filter it out so the library's stale tree matches today's
-                    # 8-folder layout.
-                    if path == "inputs" or path.startswith("inputs/"):
-                        dropped_legacy = True
-                        continue
-                    new_content = _maybe_convert_library_workflow(path, content)
-                    if new_content is not content:
-                        converted_any = True
-                    pairs.append((path, new_content))
-                # Ensure the optional standard folders exist (the library tree
-                # doesn't include them today, but `project.json` consumers
-                # expect them present).
-                present_top = {p.split("/", 1)[0] for p, _ in pairs}
-                for folder in ("data", "docs", "scripts"):
-                    if folder not in present_top:
-                        pairs.append((f"{folder}/.gitkeep", b""))
-                if converted_any:
-                    _stderr("note=converted library workflow file(s) to canonical on-disk format")
-                if dropped_legacy:
-                    _stderr("note=dropped legacy inputs/ folder from library output")
+                # Filter Python bytecode-cache files the library accidentally
+                # ships when the source tree has been imported.
+                pairs = [
+                    (path, content)
+                    for path, content in raw_pairs
+                    if "__pycache__" not in path.split("/")
+                    and not path.endswith(".pyc")
+                ]
             else:
                 pairs = list(_emit_embedded_default_project())
         else:
@@ -380,16 +320,7 @@ def main(argv: list[str]) -> int:
             _validate_name(name)
 
             if use_library:
-                pairs = list(
-                    library.item_template(kind, name)  # type: ignore[attr-defined]
-                )
-                # The library's workflow template uses the older ExecutionGraph
-                # shape (graph_id/node_type/string-condition) — substitute with
-                # the canonical on-disk Workflow format from our embedded
-                # template. See templates/README.md for context.
-                if kind == "workflow":
-                    pairs = list(_emit_embedded_item(kind, name))
-                    _stderr("note=overrode library workflow template with embedded (canonical on-disk format)")
+                pairs = list(library.item_template(kind, name))  # type: ignore[attr-defined]
             else:
                 pairs = list(_emit_embedded_item(kind, name))
     except SystemExit:
