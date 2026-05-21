@@ -1,0 +1,33 @@
+# Skill Metadata: Drop Object
+# Manipulation skill for releasing a grasped object at a destination
+
+skill_id: drop_object
+version: "1.0.0"
+description: "Release a grasped object at a specified destination and open gripper"
+
+# Parameter structure is derived from `def drop_object(...)` in robotic_code.py;
+# descriptions come from the docstring Args: block. Add a top-level
+# `parameter_descriptions: {name: text}` map here only to override docstring text.
+
+preconditions:
+  object_grasped: true
+  gripper_closed: true
+  destination_accessible: true
+
+postconditions:
+  object_released: true
+  gripper_open: true
+  object_at_destination: true
+
+safety_rules:
+  - "Minimum release height: 0.1m above destination"
+  - "Gripper must fully open before retreat"
+  - "Collision detection must be enabled"
+  - "Emergency stop button must be accessible"
+  - "Object detachment must be synchronized"
+
+tags:
+  - manipulation
+  - gripper
+  - pick-and-place
+  - release
