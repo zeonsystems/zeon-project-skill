@@ -1,0 +1,22 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "zeon-local",
+  "owner": {
+    "name": "Zeon Systems"
+  },
+  "metadata": {
+    "description": "Local marketplace for zeon-project-skill — single-plugin repo. Use `/plugin marketplace add <repo-path>` then `/plugin install zeon-project-skill@zeon-local` to test the skill locally.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "zeon-project-skill",
+      "description": "Author, extend, and refactor Zeon (everything-prototype-containers) projects — skills, workflows, worlds, objects, canvases — with byte-accurate templates and schema-aware validation. Works with or without the Zeon product installed locally.",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/authoring-zeon-projects"
+      ]
+    }
+  ]
+}

@@ -1,7 +1,0 @@
-{
-  "name": "zeon-project-skill",
-  "description": "Author, extend, and refactor Zeon (everything-prototype-containers) projects with the correct folder structure, schemas, and cross-references — works whether or not the Zeon product is locally installed.",
-  "author": {
-    "name": "Zeon Systems"
-  }
-}
