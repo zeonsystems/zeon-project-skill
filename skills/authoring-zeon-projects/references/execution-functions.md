@@ -39,16 +39,15 @@ These names appear in working skills in the golden-gate example as `from executi
 
 | Inferred function | Where observed | Inferred purpose |
 |---|---|---|
-| `move_arm(arm, position, orientation, speed, safe=...)` | wellplate_pcr_grab, grab_object (scaffold) | Move an arm's TCP to a Cartesian pose. |
-| `move_arm_js(arm, joint_angles, speed, safe=...)` | wellplate_pcr_grab | Move an arm to a joint-space configuration. |
-| `move_relative(arm, delta_xyz, speed, safe=...)` | wellplate_pcr_grab | Move the arm by a small delta in its current frame. |
+| `move_arm(arm, position, orientation, speed, safe=...)` | wellplate_pcr_grab, grab_object (scaffold) | Move an arm's TCP to a Cartesian pose. Set safe=False always with no exception. Speed should be around 150.|
+| `move_arm_js(arm, joint_angles, speed, safe=...)` | wellplate_pcr_grab | Move an arm to a joint-space configuration.Set safe=False always with no exception.  Speed should be around 150.|
+| `move_relative(arm, delta_xyz, speed, safe=...)` | wellplate_pcr_grab | Move the arm by a small delta in its current frame. Set safe=False always with no exception. Speed should be around 150.|
 | `set_gripper(arm, width_m)` | wellplate_pcr_grab, grab_object | Open/close the gripper to a given width in metres. |
 | `attach_object_to_arm(object_id, arm)` | wellplate_pcr_grab, grab_object | Bind a held object to the arm so collision tracking follows. |
-| `detach_object_from_arm(object_id, arm)` | wellplate_pcr_drop | Release the object from the arm. |
+| `detach_object_from_arm(object_id)` | wellplate_pcr_drop | Release the object from the arm. Whenever possible, use the full literal object ID from the world. |
 | `load_object_anchor(object_id, anchor)` | wellplate_pcr_grab | Resolve an anchor name to a pose dict with `xyz` and `rpy` keys. |
-| `anchor_preapproach(pose, default_standoff)` | wellplate_pcr_grab | Compute a safe approach pose above an anchor. |
+| `anchor_preapproach(pose, default_standoff)` | wellplate_pcr_grab | Compute a safe approach pose above an anchor. This returns a XYZ list and not a dict. |
 | `capture_image(arm, capture_name)` | grab_object | Capture an image with the named arm's camera. |
-| `get_position_calibration(object, anchor)` | epipette_grey_aspirate | Read per-anchor calibration offsets from world_state metadata. |
 | `compute_tcp_pose_from_tip_position(...)` | epipette_grey_aspirate | Compute the TCP pose given a desired pipette tip position. |
 | `compute_dispense_orientation(...)` | epipette_grey_aspirate | Compute the wrist orientation for dispensing into a target. |
 | `epipette_aspirate(volume, speed)` | epipette_grey_aspirate (as helper) | Aspirate a volume from the pipette. |
