@@ -33,6 +33,14 @@ slow near contact (typical ladders: 100→60→10, or 70→40→10; joint-space 
 use fractional speeds ~0.5). Lift straight up (world +Z) before any lateral
 move. Small `time.sleep(0.1–0.5)` settles between gripper actions.
 
+**Start and end at a transition pose.** Relocating an arm across the
+workspace (between instruments/azimuths) is never a free-space Cartesian
+move: route through the named transition poses as `move_arm_js` waypoints
+(no IK solve — can't fail or elbow-flip), then finish with the anchor-driven
+approach. Skills that begin and end at a transition pose compose with any
+other skill without pairwise path planning — this is the modularity contract
+that makes meta-skills pure sequencing. See `references/transition-poses.md`.
+
 ## `move_relative` deltas are WORLD-frame
 
 `move_relative` adds `delta_xyz` in the **world frame**, regardless of how the
