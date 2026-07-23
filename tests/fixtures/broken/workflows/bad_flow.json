@@ -1,0 +1,30 @@
+{
+  "workflow_id": "actually_different",
+  "name": "Bad flow",
+  "version": "1.0.0",
+  "author": "",
+  "created_at": "x",
+  "updated_at": "x",
+  "objects": [],
+  "inputs": [
+    { "name": "items", "type": "string", "defaultValue": "123e4567-e89b-12d3-a456-426614174000" }
+  ],
+  "nodes": [
+    { "node_id": "start_0", "type": "start", "label": "Start" },
+    { "node_id": "use", "type": "skill", "label": "Use", "skill_id": "bad_skill",
+      "parameters": { "volumn": 5, "extra": { "$input": "nope" } }, "retry": 3 },
+    { "node_id": "branch", "type": "conditional", "label": "Branch",
+      "condition": { "expression": "count < 5" } },
+    { "node_id": "fill-loop", "type": "loop", "label": "Loop",
+      "loop": { "type": "collection", "source": "missing_input" } },
+    { "node_id": "end_0", "type": "end", "label": "End" }
+  ],
+  "edges": [
+    { "edge_id": "e0", "from_node": "start_0", "to_node": "use", "condition": { "type": "default" } },
+    { "edge_id": "e1", "from_node": "use", "to_node": "branch", "condition": { "type": "default" } },
+    { "edge_id": "e2", "from_node": "branch", "to_node": "fill-loop", "condition": { "type": "if_true" } },
+    { "edge_id": "e3", "from_node": "branch", "to_node": "end_0", "condition": { "type": "if_false" } },
+    { "edge_id": "e4", "from_node": "fill-loop", "to_node": "use", "condition": { "type": "loop_continue" } },
+    { "edge_id": "e5", "from_node": "fill-loop", "to_node": "end_0", "condition": { "type": "loop_complete" } }
+  ]
+}

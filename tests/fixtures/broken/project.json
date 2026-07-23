@@ -1,0 +1,9 @@
+{
+  "name": "broken fixture",
+  "description": "Deliberately defective project — every defect is asserted by run_tests.py",
+  "created_at": "2026-06-20T00:00:00.000Z",
+  "updated_at": "2026-06-20T00:00:00.000Z",
+  "archived": false,
+  "active_workflow": "ghost_flow",
+  "active_world": null
+}
