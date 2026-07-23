@@ -1,0 +1,1105 @@
+{
+  "source": "execution.execution_functions @ adeb55bb",
+  "note": "Curated skill-facing API (__all__). Regenerate with scripts/dev/gen_function_manifest.py.",
+  "functions": {
+    "SkillObject": {
+      "kind": "reexport",
+      "module": ""
+    },
+    "ExecutionInfoContext": {
+      "kind": "reexport",
+      "module": ""
+    },
+    "ExecutionCancelledInSkillError": {
+      "kind": "reexport",
+      "module": ""
+    },
+    "print_log": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "args",
+          "kind": "vararg"
+        },
+        {
+          "name": "kwargs",
+          "kind": "kwarg"
+        }
+      ],
+      "doc": "Wrapper for print() that logs to both frontend and CLI.",
+      "module": "_runtime"
+    },
+    "execution_dir": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "create",
+          "kind": "positional",
+          "annotation": "bool",
+          "default": "False"
+        }
+      ],
+      "doc": "Return the current execution's artifact directory.",
+      "module": "_runtime"
+    },
+    "liquid_state_path": {
+      "kind": "function",
+      "signature": [],
+      "doc": "Return ``execution_dir()/liquid_transfer.json`` (None without an execution).",
+      "module": "_core"
+    },
+    "load_liquid_state": {
+      "kind": "function",
+      "signature": [],
+      "doc": "Read this execution's liquid-transfer ledger, creating it if absent.",
+      "module": "_core"
+    },
+    "record_transfer": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "rxn_well",
+          "kind": "positional",
+          "annotation": "str"
+        },
+        {
+          "name": "kind",
+          "kind": "positional",
+          "annotation": "str"
+        },
+        {
+          "name": "index",
+          "kind": "keyword_only",
+          "annotation": "int | None",
+          "default": "None"
+        },
+        {
+          "name": "part",
+          "kind": "keyword_only",
+          "annotation": "str | None",
+          "default": "None"
+        },
+        {
+          "name": "vol",
+          "kind": "keyword_only",
+          "annotation": "float | None",
+          "default": "None"
+        }
+      ],
+      "doc": "Mark a completed transfer in the resume ledger and persist it.",
+      "module": "_core"
+    },
+    "is_transfer_done": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "rxn_well",
+          "kind": "positional",
+          "annotation": "str"
+        },
+        {
+          "name": "kind",
+          "kind": "positional",
+          "annotation": "str"
+        },
+        {
+          "name": "index",
+          "kind": "positional",
+          "annotation": "int | None",
+          "default": "None"
+        }
+      ],
+      "doc": "Return True if a planned op already completed for this execution.",
+      "module": "_core"
+    },
+    "set_skill_variable": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "key",
+          "kind": "positional",
+          "annotation": "str"
+        },
+        {
+          "name": "value",
+          "kind": "positional",
+          "annotation": "any"
+        }
+      ],
+      "doc": "Store a variable for sharing across skills within one execution.",
+      "module": "_core"
+    },
+    "get_skill_variable": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "key",
+          "kind": "positional",
+          "annotation": "str"
+        },
+        {
+          "name": "default",
+          "kind": "positional",
+          "annotation": "any",
+          "default": "None"
+        }
+      ],
+      "doc": "Get a variable from skill storage.",
+      "module": "_core"
+    },
+    "clear_skill_variable": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "key",
+          "kind": "positional",
+          "annotation": "str"
+        }
+      ],
+      "doc": "Remove a variable from skill storage.",
+      "module": "_core"
+    },
+    "pause_for_user": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "message",
+          "kind": "positional",
+          "annotation": "str"
+        },
+        {
+          "name": "on_resume",
+          "kind": "positional",
+          "annotation": "Callable[[], None] | None",
+          "default": "None"
+        },
+        {
+          "name": "slack_channel",
+          "kind": "keyword_only",
+          "annotation": "str | None",
+          "default": "None"
+        },
+        {
+          "name": "files",
+          "kind": "keyword_only",
+          "annotation": "str | Path | list[str | Path] | None",
+          "default": "None"
+        }
+      ],
+      "doc": "Slack-ping the user, pause the workflow, run a resolve callback on resume.",
+      "module": "_core"
+    },
+    "register_custom_resume": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "label",
+          "kind": "positional",
+          "annotation": "str"
+        },
+        {
+          "name": "callback",
+          "kind": "positional",
+          "annotation": "Callable[[], None]"
+        }
+      ],
+      "doc": "Register a skill-wide custom resume action.",
+      "module": "_core"
+    },
+    "unregister_custom_resume": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "label",
+          "kind": "positional",
+          "annotation": "str"
+        }
+      ],
+      "doc": "Drop a previously-registered custom resume action. Safe if unknown.",
+      "module": "_core"
+    },
+    "pause_checkpoint": {
+      "kind": "function",
+      "signature": [],
+      "doc": "Explicit pause yield-point for gaps between motion commands.",
+      "module": "_core"
+    },
+    "pause_aware_sleep": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "seconds",
+          "kind": "positional",
+          "annotation": "float"
+        },
+        {
+          "name": "poll_s",
+          "kind": "keyword_only",
+          "annotation": "float",
+          "default": "0.1"
+        }
+      ],
+      "doc": "Sleep for ``seconds`` while honoring pause/resume signals.",
+      "module": "_core"
+    },
+    "send_slack": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "text",
+          "kind": "positional",
+          "annotation": "str"
+        },
+        {
+          "name": "channel",
+          "kind": "positional",
+          "annotation": "str | None",
+          "default": "None"
+        },
+        {
+          "name": "username",
+          "kind": "positional",
+          "annotation": "str | None",
+          "default": "None"
+        },
+        {
+          "name": "icon_emoji",
+          "kind": "positional",
+          "annotation": "str | None",
+          "default": "None"
+        },
+        {
+          "name": "blocking",
+          "kind": "positional",
+          "annotation": "bool",
+          "default": "False"
+        },
+        {
+          "name": "files",
+          "kind": "positional",
+          "annotation": "str | Path | list[str | Path] | None",
+          "default": "None"
+        },
+        {
+          "name": "channel_id",
+          "kind": "positional",
+          "annotation": "str | None",
+          "default": "None"
+        }
+      ],
+      "doc": "Send a Slack notification, optionally with local file/image attachments.",
+      "module": "_slack"
+    },
+    "ask_user_slack": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "question",
+          "kind": "positional",
+          "annotation": "str"
+        },
+        {
+          "name": "options",
+          "kind": "positional",
+          "annotation": "list[str] | dict[str, str] | None",
+          "default": "None"
+        },
+        {
+          "name": "image",
+          "kind": "keyword_only",
+          "annotation": "str | Path | list[str | Path] | None",
+          "default": "None"
+        },
+        {
+          "name": "channel_id",
+          "kind": "keyword_only",
+          "annotation": "str | None",
+          "default": "None"
+        },
+        {
+          "name": "timeout_s",
+          "kind": "keyword_only",
+          "annotation": "float",
+          "default": "600.0"
+        },
+        {
+          "name": "default",
+          "kind": "keyword_only",
+          "annotation": "str | None",
+          "default": "None"
+        }
+      ],
+      "doc": "Pause the workflow, ask the operator with buttons, return the choice.",
+      "module": "_slack"
+    },
+    "move_arm": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "arm",
+          "kind": "positional"
+        },
+        {
+          "name": "position",
+          "kind": "positional"
+        },
+        {
+          "name": "orientation",
+          "kind": "positional"
+        },
+        {
+          "name": "speed",
+          "kind": "positional",
+          "default": "100"
+        },
+        {
+          "name": "wait",
+          "kind": "positional",
+          "default": "True"
+        },
+        {
+          "name": "max_ik_retries",
+          "kind": "keyword_only",
+          "annotation": "int",
+          "default": "3"
+        }
+      ],
+      "doc": "Move the arm's TCP to a Cartesian pose.",
+      "module": "_core"
+    },
+    "move_arm_js": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "arm",
+          "kind": "positional"
+        },
+        {
+          "name": "joint_angles",
+          "kind": "positional"
+        },
+        {
+          "name": "speed",
+          "kind": "positional",
+          "default": "None"
+        }
+      ],
+      "doc": "Move the arm to a specific joint configuration.",
+      "module": "_core"
+    },
+    "move_relative": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "arm",
+          "kind": "positional"
+        },
+        {
+          "name": "delta_xyz",
+          "kind": "positional"
+        },
+        {
+          "name": "delta_rpy",
+          "kind": "positional",
+          "default": "None"
+        },
+        {
+          "name": "speed",
+          "kind": "positional",
+          "default": "100"
+        },
+        {
+          "name": "wait",
+          "kind": "positional",
+          "default": "True"
+        }
+      ],
+      "doc": "Move arm relative to current position.",
+      "module": "_core"
+    },
+    "get_arm_pose": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "arm",
+          "kind": "positional"
+        }
+      ],
+      "doc": "Get current Cartesian pose of the arm's TCP (Tool Center Point).",
+      "module": "_core"
+    },
+    "set_gripper": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "arm",
+          "kind": "positional"
+        },
+        {
+          "name": "width_m",
+          "kind": "positional"
+        }
+      ],
+      "doc": "Set gripper opening width.",
+      "module": "_core"
+    },
+    "attach_object_to_arm": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "object_id",
+          "kind": "positional"
+        },
+        {
+          "name": "arm",
+          "kind": "positional"
+        }
+      ],
+      "doc": "Attach object to arm and sync world.",
+      "module": "_core"
+    },
+    "detach_object_from_arm": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "object_id",
+          "kind": "positional"
+        }
+      ],
+      "doc": "Detach object from arm and sync world.",
+      "module": "_core"
+    },
+    "capture_image": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "arm",
+          "kind": "positional"
+        },
+        {
+          "name": "capture_name",
+          "kind": "positional"
+        }
+      ],
+      "doc": "Capture image from specified arm and save to readouts directory.",
+      "module": "_vision"
+    },
+    "localize_object_tags": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "object_name",
+          "kind": "positional"
+        },
+        {
+          "name": "viewpoints",
+          "kind": "positional",
+          "default": "None"
+        },
+        {
+          "name": "arm",
+          "kind": "keyword_only",
+          "default": "'left_arm'"
+        },
+        {
+          "name": "mode",
+          "kind": "keyword_only",
+          "default": "'corner'"
+        },
+        {
+          "name": "use_prior",
+          "kind": "keyword_only",
+          "default": "True"
+        },
+        {
+          "name": "prior_std_pos_mm",
+          "kind": "keyword_only",
+          "default": "20.0"
+        },
+        {
+          "name": "prior_std_rot_deg",
+          "kind": "keyword_only",
+          "default": "10.0"
+        },
+        {
+          "name": "use_full_theta",
+          "kind": "keyword_only",
+          "default": "False"
+        },
+        {
+          "name": "tag_edge_m",
+          "kind": "keyword_only",
+          "default": "0.02"
+        },
+        {
+          "name": "sigma_px",
+          "kind": "keyword_only",
+          "default": "1.0"
+        },
+        {
+          "name": "huber_px",
+          "kind": "keyword_only",
+          "default": "2.0"
+        },
+        {
+          "name": "pos_sigma_gate_mm",
+          "kind": "keyword_only",
+          "default": "15.0"
+        },
+        {
+          "name": "min_detections",
+          "kind": "keyword_only",
+          "default": "2"
+        },
+        {
+          "name": "max_move_mm",
+          "kind": "keyword_only",
+          "default": "None"
+        },
+        {
+          "name": "max_fitness_mm",
+          "kind": "keyword_only",
+          "default": "None"
+        },
+        {
+          "name": "index",
+          "kind": "keyword_only",
+          "default": "None"
+        }
+      ],
+      "doc": "Relocalize ``object_name`` from AprilTags and refine its world pose; return a diagnostic.",
+      "module": "_localization"
+    },
+    "openshelf_status": {
+      "kind": "function",
+      "signature": [],
+      "doc": "Diagnose the cabinet link one stage at a time: config \u2192 reachable \u2192",
+      "module": "_openshelf"
+    },
+    "openshelf_read_storage": {
+      "kind": "function",
+      "signature": [],
+      "doc": "Read every storage item and its locations from the OpenShelf cabinet.",
+      "module": "_openshelf"
+    },
+    "openshelf_find_item": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "name",
+          "kind": "positional",
+          "annotation": "str"
+        }
+      ],
+      "doc": "Resolve an item NAME to its UPCA and first stored location.",
+      "module": "_openshelf"
+    },
+    "openshelf_store_item": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "name",
+          "kind": "positional",
+          "annotation": "str",
+          "default": "''"
+        },
+        {
+          "name": "timeout_s",
+          "kind": "positional",
+          "annotation": "float",
+          "default": "120"
+        }
+      ],
+      "doc": "Store an item by NAME, blocking until the cabinet actually finishes.",
+      "module": "_openshelf"
+    },
+    "openshelf_retrieve_item": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "name",
+          "kind": "positional",
+          "annotation": "str",
+          "default": "''"
+        },
+        {
+          "name": "timeout_s",
+          "kind": "positional",
+          "annotation": "float",
+          "default": "120"
+        }
+      ],
+      "doc": "Retrieve an item by NAME from its cell, blocking until the cabinet finishes.",
+      "module": "_openshelf"
+    },
+    "is_sim_mode": {
+      "kind": "function",
+      "signature": [],
+      "doc": "True when running in sim (use e.g. fake AprilTag readouts).",
+      "module": "_core"
+    },
+    "get_object_pose": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "object_name",
+          "kind": "positional",
+          "annotation": "str"
+        },
+        {
+          "name": "index",
+          "kind": "positional",
+          "annotation": "int | None",
+          "default": "None"
+        }
+      ],
+      "doc": "Get the world-frame pose of an object by name and optional index.",
+      "module": "_core"
+    },
+    "load_object_anchor": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "object_name",
+          "kind": "positional",
+          "annotation": "str"
+        },
+        {
+          "name": "anchor_name",
+          "kind": "positional",
+          "annotation": "str"
+        },
+        {
+          "name": "index",
+          "kind": "positional",
+          "annotation": "int | None",
+          "default": "None"
+        },
+        {
+          "name": "joint_config",
+          "kind": "positional",
+          "annotation": "dict | None",
+          "default": "None"
+        }
+      ],
+      "doc": "Get an anchor's world-frame pose for any object (static or articulated).",
+      "module": "_core"
+    },
+    "anchor_preapproach": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "anchor",
+          "kind": "positional",
+          "annotation": "dict"
+        },
+        {
+          "name": "default_standoff",
+          "kind": "positional",
+          "annotation": "float",
+          "default": "0.0"
+        }
+      ],
+      "doc": "Compute pre-approach position at standoff distance from anchor.",
+      "module": "_core"
+    },
+    "get_world_state": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "object_id",
+          "kind": "positional",
+          "annotation": "str"
+        }
+      ],
+      "doc": "Return the per-world *live state* for one object, keyed by its UUID.",
+      "module": "_core"
+    },
+    "set_world_state": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "object_id",
+          "kind": "positional",
+          "annotation": "str"
+        },
+        {
+          "name": "updates",
+          "kind": "positional",
+          "annotation": "dict"
+        }
+      ],
+      "doc": "Merge `updates` into an object's live-state entry and persist it.",
+      "module": "_core"
+    },
+    "update_object_joint_config": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "object_name",
+          "kind": "positional",
+          "annotation": "str"
+        },
+        {
+          "name": "joint_config_update",
+          "kind": "positional",
+          "annotation": "dict"
+        }
+      ],
+      "doc": "Update the world model's joint config for an articulated object.",
+      "module": "_core"
+    },
+    "snap_object_to_world_pose": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "object_id",
+          "kind": "positional",
+          "annotation": "str"
+        },
+        {
+          "name": "xyz",
+          "kind": "positional",
+          "annotation": "list"
+        },
+        {
+          "name": "wxyz",
+          "kind": "positional",
+          "annotation": "list"
+        }
+      ],
+      "doc": "Snap an object to an explicit world-frame pose.",
+      "module": "_core"
+    },
+    "snap_object_anchor_to_world_pose": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "object_id",
+          "kind": "positional",
+          "annotation": "str"
+        },
+        {
+          "name": "anchor_name",
+          "kind": "positional",
+          "annotation": "str"
+        },
+        {
+          "name": "xyz",
+          "kind": "positional",
+          "annotation": "list"
+        },
+        {
+          "name": "wxyz",
+          "kind": "positional",
+          "annotation": "list"
+        }
+      ],
+      "doc": "Snap an object so that a named anchor aligns with an explicit world-frame target pose.",
+      "module": "_core"
+    },
+    "get_object_tcp_transform": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "object_id",
+          "kind": "positional",
+          "annotation": "str"
+        }
+      ],
+      "doc": "Return the TCP-to-object transform for an object currently attached to an arm.",
+      "module": "_core"
+    },
+    "interpolate_anchor_joint_path": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "arm",
+          "kind": "positional",
+          "annotation": "str"
+        },
+        {
+          "name": "object_name",
+          "kind": "positional",
+          "annotation": "str"
+        },
+        {
+          "name": "anchor_name",
+          "kind": "positional",
+          "annotation": "str"
+        },
+        {
+          "name": "joint_path",
+          "kind": "positional",
+          "annotation": "dict[str, tuple[float, float]]"
+        },
+        {
+          "name": "fixed_joints",
+          "kind": "keyword_only",
+          "annotation": "dict[str, float] | None",
+          "default": "None"
+        },
+        {
+          "name": "steps",
+          "kind": "keyword_only",
+          "annotation": "int",
+          "default": "5"
+        },
+        {
+          "name": "speed",
+          "kind": "keyword_only",
+          "annotation": "float",
+          "default": "20"
+        },
+        {
+          "name": "wait",
+          "kind": "keyword_only",
+          "annotation": "bool",
+          "default": "True"
+        },
+        {
+          "name": "index",
+          "kind": "keyword_only",
+          "annotation": "int | None",
+          "default": "None"
+        },
+        {
+          "name": "sync_joint_config",
+          "kind": "keyword_only",
+          "annotation": "bool",
+          "default": "True"
+        }
+      ],
+      "doc": "Sweep an articulated object's joint(s) and move ``arm`` along the anchor arc.",
+      "module": "_core"
+    },
+    "interpolate_anchor_to_anchor": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "arm",
+          "kind": "positional",
+          "annotation": "str"
+        },
+        {
+          "name": "object_name",
+          "kind": "positional",
+          "annotation": "str"
+        },
+        {
+          "name": "start_anchor",
+          "kind": "positional",
+          "annotation": "str"
+        },
+        {
+          "name": "end_anchor",
+          "kind": "positional",
+          "annotation": "str"
+        },
+        {
+          "name": "start_joint_config",
+          "kind": "keyword_only",
+          "annotation": "dict | None",
+          "default": "None"
+        },
+        {
+          "name": "end_joint_config",
+          "kind": "keyword_only",
+          "annotation": "dict | None",
+          "default": "None"
+        },
+        {
+          "name": "interpolate",
+          "kind": "keyword_only",
+          "annotation": "bool",
+          "default": "False"
+        },
+        {
+          "name": "steps",
+          "kind": "keyword_only",
+          "annotation": "int",
+          "default": "5"
+        },
+        {
+          "name": "speed",
+          "kind": "keyword_only",
+          "annotation": "float",
+          "default": "20"
+        },
+        {
+          "name": "wait",
+          "kind": "keyword_only",
+          "annotation": "bool",
+          "default": "True"
+        },
+        {
+          "name": "index",
+          "kind": "keyword_only",
+          "annotation": "int | None",
+          "default": "None"
+        }
+      ],
+      "doc": "Move ``arm`` between two resolved anchor poses.",
+      "module": "_core"
+    },
+    "init_epipette": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "name",
+          "kind": "positional",
+          "annotation": "str"
+        },
+        {
+          "name": "ble_device_name",
+          "kind": "positional",
+          "annotation": "str",
+          "default": "'picus'"
+        },
+        {
+          "name": "debug",
+          "kind": "positional",
+          "annotation": "bool",
+          "default": "True"
+        }
+      ],
+      "doc": "Connect to an epipette and register it under a logical name.",
+      "module": "_epipette"
+    },
+    "epipette_aspirate": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "name",
+          "kind": "positional",
+          "annotation": "str"
+        },
+        {
+          "name": "volume",
+          "kind": "positional",
+          "default": "5"
+        },
+        {
+          "name": "speed",
+          "kind": "positional",
+          "default": "5"
+        }
+      ],
+      "doc": "Aspirate liquid with a named epipette.",
+      "module": "_epipette"
+    },
+    "epipette_dispense": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "name",
+          "kind": "positional",
+          "annotation": "str"
+        },
+        {
+          "name": "volume",
+          "kind": "positional",
+          "default": "5"
+        },
+        {
+          "name": "speed",
+          "kind": "positional",
+          "default": "5"
+        }
+      ],
+      "doc": "Dispense liquid with a named epipette.",
+      "module": "_epipette"
+    },
+    "epipette_tip_eject": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "name",
+          "kind": "positional",
+          "annotation": "str"
+        }
+      ],
+      "doc": "Eject the tip from a named epipette.",
+      "module": "_epipette"
+    },
+    "epipette_home": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "name",
+          "kind": "positional",
+          "annotation": "str"
+        }
+      ],
+      "doc": "Home the epipette piston to position 0. Clears INVALID_PARAMETERS state from piston drift.",
+      "module": "_epipette"
+    },
+    "epipette_blow_out": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "name",
+          "kind": "positional",
+          "annotation": "str"
+        },
+        {
+          "name": "speed",
+          "kind": "positional",
+          "annotation": "int",
+          "default": "10"
+        }
+      ],
+      "doc": "Blow out residual liquid from epipette tip to clear firmware 'liquid present' warning.",
+      "module": "_epipette"
+    },
+    "epipette_disconnect": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "name",
+          "kind": "positional",
+          "annotation": "str"
+        }
+      ],
+      "doc": "Disconnect a named epipette device.",
+      "module": "_epipette"
+    },
+    "epipette_reconnect": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "name",
+          "kind": "positional",
+          "annotation": "str"
+        }
+      ],
+      "doc": "Re-establish a dropped BLE link to an already-initialized epipette.",
+      "module": "_epipette"
+    },
+    "EPIPETTE": {
+      "kind": "constant",
+      "value": "'epipette'",
+      "module": "_epipette"
+    },
+    "EPIPETTE_GREY": {
+      "kind": "constant",
+      "value": "'epipette_grey'",
+      "module": "_epipette"
+    },
+    "EPIPETTE_ML": {
+      "kind": "constant",
+      "value": "'epipette_ml'",
+      "module": "_epipette"
+    },
+    "EPIPETTE_GREY_BLE_NAME": {
+      "kind": "constant",
+      "value": "<device-specific>",
+      "module": "_epipette"
+    },
+    "EPIPETTE_ML_BLE_NAME": {
+      "kind": "constant",
+      "value": "<device-specific>",
+      "module": "_epipette"
+    }
+  }
+}
