@@ -1,0 +1,13 @@
+{
+  "version": "2.0",
+  "config": { "tensor_device": "cuda", "enable_blox": false, "create_workspace_boundaries": false },
+  "objects": {
+    "tipbox_grey_11111111-2222-3333-4444-555555555555": {
+      "mount": { "type": "FixedMount",
+        "world_P_body_fixed": { "xyz": [0.1, 0.2, 0.0], "wxyz": [1, 0, 0, 0], "stamp_s": null } },
+      "enabled": true,
+      "metadata": { "type": "tipbox_grey", "name": "tipbox_10ul_1" }
+    }
+  },
+  "metadata": { "name": "test_world", "description": "", "source": "manual" }
+}

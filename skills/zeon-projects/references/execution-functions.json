@@ -3,16 +3,13 @@
   "note": "Curated skill-facing API (__all__). Regenerate with scripts/dev/gen_function_manifest.py.",
   "functions": {
     "SkillObject": {
-      "kind": "reexport",
-      "module": ""
+      "kind": "reexport"
     },
     "ExecutionInfoContext": {
-      "kind": "reexport",
-      "module": ""
+      "kind": "reexport"
     },
     "ExecutionCancelledInSkillError": {
-      "kind": "reexport",
-      "module": ""
+      "kind": "reexport"
     },
     "print_log": {
       "kind": "function",
@@ -26,8 +23,7 @@
           "kind": "kwarg"
         }
       ],
-      "doc": "Wrapper for print() that logs to both frontend and CLI.",
-      "module": "_runtime"
+      "doc": "Wrapper for print() that logs to both frontend and CLI."
     },
     "execution_dir": {
       "kind": "function",
@@ -39,20 +35,17 @@
           "default": "False"
         }
       ],
-      "doc": "Return the current execution's artifact directory.",
-      "module": "_runtime"
+      "doc": "Return the current execution's artifact directory."
     },
     "liquid_state_path": {
       "kind": "function",
       "signature": [],
-      "doc": "Return ``execution_dir()/liquid_transfer.json`` (None without an execution).",
-      "module": "_core"
+      "doc": "Return ``execution_dir()/liquid_transfer.json`` (None without an execution)."
     },
     "load_liquid_state": {
       "kind": "function",
       "signature": [],
-      "doc": "Read this execution's liquid-transfer ledger, creating it if absent.",
-      "module": "_core"
+      "doc": "Read this execution's liquid-transfer ledger, creating it if absent."
     },
     "record_transfer": {
       "kind": "function",
@@ -86,8 +79,7 @@
           "default": "None"
         }
       ],
-      "doc": "Mark a completed transfer in the resume ledger and persist it.",
-      "module": "_core"
+      "doc": "Mark a completed transfer in the resume ledger and persist it."
     },
     "is_transfer_done": {
       "kind": "function",
@@ -109,8 +101,7 @@
           "default": "None"
         }
       ],
-      "doc": "Return True if a planned op already completed for this execution.",
-      "module": "_core"
+      "doc": "Return True if a planned op already completed for this execution."
     },
     "set_skill_variable": {
       "kind": "function",
@@ -126,8 +117,7 @@
           "annotation": "any"
         }
       ],
-      "doc": "Store a variable for sharing across skills within one execution.",
-      "module": "_core"
+      "doc": "Store a variable for sharing across skills within one execution."
     },
     "get_skill_variable": {
       "kind": "function",
@@ -144,8 +134,7 @@
           "default": "None"
         }
       ],
-      "doc": "Get a variable from skill storage.",
-      "module": "_core"
+      "doc": "Get a variable from skill storage."
     },
     "clear_skill_variable": {
       "kind": "function",
@@ -156,8 +145,7 @@
           "annotation": "str"
         }
       ],
-      "doc": "Remove a variable from skill storage.",
-      "module": "_core"
+      "doc": "Remove a variable from skill storage."
     },
     "pause_for_user": {
       "kind": "function",
@@ -186,8 +174,7 @@
           "default": "None"
         }
       ],
-      "doc": "Slack-ping the user, pause the workflow, run a resolve callback on resume.",
-      "module": "_core"
+      "doc": "Slack-ping the user, pause the workflow, run a resolve callback on resume."
     },
     "register_custom_resume": {
       "kind": "function",
@@ -203,8 +190,7 @@
           "annotation": "Callable[[], None]"
         }
       ],
-      "doc": "Register a skill-wide custom resume action.",
-      "module": "_core"
+      "doc": "Register a skill-wide custom resume action."
     },
     "unregister_custom_resume": {
       "kind": "function",
@@ -215,14 +201,12 @@
           "annotation": "str"
         }
       ],
-      "doc": "Drop a previously-registered custom resume action. Safe if unknown.",
-      "module": "_core"
+      "doc": "Drop a previously-registered custom resume action. Safe if unknown."
     },
     "pause_checkpoint": {
       "kind": "function",
       "signature": [],
-      "doc": "Explicit pause yield-point for gaps between motion commands.",
-      "module": "_core"
+      "doc": "Explicit pause yield-point for gaps between motion commands."
     },
     "pause_aware_sleep": {
       "kind": "function",
@@ -239,8 +223,7 @@
           "default": "0.1"
         }
       ],
-      "doc": "Sleep for ``seconds`` while honoring pause/resume signals.",
-      "module": "_core"
+      "doc": "Sleep for ``seconds`` while honoring pause/resume signals."
     },
     "send_slack": {
       "kind": "function",
@@ -287,8 +270,7 @@
           "default": "None"
         }
       ],
-      "doc": "Send a Slack notification, optionally with local file/image attachments.",
-      "module": "_slack"
+      "doc": "Send a Slack notification, optionally with local file/image attachments."
     },
     "ask_user_slack": {
       "kind": "function",
@@ -329,8 +311,7 @@
           "default": "None"
         }
       ],
-      "doc": "Pause the workflow, ask the operator with buttons, return the choice.",
-      "module": "_slack"
+      "doc": "Pause the workflow, ask the operator with buttons, return the choice."
     },
     "move_arm": {
       "kind": "function",
@@ -364,8 +345,7 @@
           "default": "3"
         }
       ],
-      "doc": "Move the arm's TCP to a Cartesian pose.",
-      "module": "_core"
+      "doc": "Move the arm's TCP to a Cartesian pose."
     },
     "move_arm_js": {
       "kind": "function",
@@ -384,8 +364,7 @@
           "default": "None"
         }
       ],
-      "doc": "Move the arm to a specific joint configuration.",
-      "module": "_core"
+      "doc": "Move the arm to a specific joint configuration."
     },
     "move_relative": {
       "kind": "function",
@@ -414,8 +393,7 @@
           "default": "True"
         }
       ],
-      "doc": "Move arm relative to current position.",
-      "module": "_core"
+      "doc": "Move arm relative to current position."
     },
     "get_arm_pose": {
       "kind": "function",
@@ -425,8 +403,7 @@
           "kind": "positional"
         }
       ],
-      "doc": "Get current Cartesian pose of the arm's TCP (Tool Center Point).",
-      "module": "_core"
+      "doc": "Get current Cartesian pose of the arm's TCP (Tool Center Point)."
     },
     "set_gripper": {
       "kind": "function",
@@ -440,8 +417,7 @@
           "kind": "positional"
         }
       ],
-      "doc": "Set gripper opening width.",
-      "module": "_core"
+      "doc": "Set gripper opening width."
     },
     "attach_object_to_arm": {
       "kind": "function",
@@ -455,8 +431,7 @@
           "kind": "positional"
         }
       ],
-      "doc": "Attach object to arm and sync world.",
-      "module": "_core"
+      "doc": "Attach object to arm and sync world."
     },
     "detach_object_from_arm": {
       "kind": "function",
@@ -466,8 +441,7 @@
           "kind": "positional"
         }
       ],
-      "doc": "Detach object from arm and sync world.",
-      "module": "_core"
+      "doc": "Detach object from arm and sync world."
     },
     "capture_image": {
       "kind": "function",
@@ -481,8 +455,7 @@
           "kind": "positional"
         }
       ],
-      "doc": "Capture image from specified arm and save to readouts directory.",
-      "module": "_vision"
+      "doc": "Capture image from specified arm and save to readouts directory."
     },
     "localize_object_tags": {
       "kind": "function",
@@ -567,76 +540,12 @@
           "default": "None"
         }
       ],
-      "doc": "Relocalize ``object_name`` from AprilTags and refine its world pose; return a diagnostic.",
-      "module": "_localization"
-    },
-    "openshelf_status": {
-      "kind": "function",
-      "signature": [],
-      "doc": "Diagnose the cabinet link one stage at a time: config \u2192 reachable \u2192",
-      "module": "_openshelf"
-    },
-    "openshelf_read_storage": {
-      "kind": "function",
-      "signature": [],
-      "doc": "Read every storage item and its locations from the OpenShelf cabinet.",
-      "module": "_openshelf"
-    },
-    "openshelf_find_item": {
-      "kind": "function",
-      "signature": [
-        {
-          "name": "name",
-          "kind": "positional",
-          "annotation": "str"
-        }
-      ],
-      "doc": "Resolve an item NAME to its UPCA and first stored location.",
-      "module": "_openshelf"
-    },
-    "openshelf_store_item": {
-      "kind": "function",
-      "signature": [
-        {
-          "name": "name",
-          "kind": "positional",
-          "annotation": "str",
-          "default": "''"
-        },
-        {
-          "name": "timeout_s",
-          "kind": "positional",
-          "annotation": "float",
-          "default": "120"
-        }
-      ],
-      "doc": "Store an item by NAME, blocking until the cabinet actually finishes.",
-      "module": "_openshelf"
-    },
-    "openshelf_retrieve_item": {
-      "kind": "function",
-      "signature": [
-        {
-          "name": "name",
-          "kind": "positional",
-          "annotation": "str",
-          "default": "''"
-        },
-        {
-          "name": "timeout_s",
-          "kind": "positional",
-          "annotation": "float",
-          "default": "120"
-        }
-      ],
-      "doc": "Retrieve an item by NAME from its cell, blocking until the cabinet finishes.",
-      "module": "_openshelf"
+      "doc": "Relocalize ``object_name`` from AprilTags and refine its world pose; return a diagnostic."
     },
     "is_sim_mode": {
       "kind": "function",
       "signature": [],
-      "doc": "True when running in sim (use e.g. fake AprilTag readouts).",
-      "module": "_core"
+      "doc": "True when running in sim (use e.g. fake AprilTag readouts)."
     },
     "get_object_pose": {
       "kind": "function",
@@ -653,8 +562,7 @@
           "default": "None"
         }
       ],
-      "doc": "Get the world-frame pose of an object by name and optional index.",
-      "module": "_core"
+      "doc": "Get the world-frame pose of an object by name and optional index."
     },
     "load_object_anchor": {
       "kind": "function",
@@ -682,8 +590,7 @@
           "default": "None"
         }
       ],
-      "doc": "Get an anchor's world-frame pose for any object (static or articulated).",
-      "module": "_core"
+      "doc": "Get an anchor's world-frame pose for any object (static or articulated)."
     },
     "anchor_preapproach": {
       "kind": "function",
@@ -700,8 +607,7 @@
           "default": "0.0"
         }
       ],
-      "doc": "Compute pre-approach position at standoff distance from anchor.",
-      "module": "_core"
+      "doc": "Compute pre-approach position at standoff distance from anchor."
     },
     "get_world_state": {
       "kind": "function",
@@ -712,8 +618,7 @@
           "annotation": "str"
         }
       ],
-      "doc": "Return the per-world *live state* for one object, keyed by its UUID.",
-      "module": "_core"
+      "doc": "Return the per-world *live state* for one object, keyed by its UUID."
     },
     "set_world_state": {
       "kind": "function",
@@ -729,8 +634,7 @@
           "annotation": "dict"
         }
       ],
-      "doc": "Merge `updates` into an object's live-state entry and persist it.",
-      "module": "_core"
+      "doc": "Merge `updates` into an object's live-state entry and persist it."
     },
     "update_object_joint_config": {
       "kind": "function",
@@ -746,8 +650,7 @@
           "annotation": "dict"
         }
       ],
-      "doc": "Update the world model's joint config for an articulated object.",
-      "module": "_core"
+      "doc": "Update the world model's joint config for an articulated object."
     },
     "snap_object_to_world_pose": {
       "kind": "function",
@@ -768,8 +671,7 @@
           "annotation": "list"
         }
       ],
-      "doc": "Snap an object to an explicit world-frame pose.",
-      "module": "_core"
+      "doc": "Snap an object to an explicit world-frame pose."
     },
     "snap_object_anchor_to_world_pose": {
       "kind": "function",
@@ -795,8 +697,7 @@
           "annotation": "list"
         }
       ],
-      "doc": "Snap an object so that a named anchor aligns with an explicit world-frame target pose.",
-      "module": "_core"
+      "doc": "Snap an object so that a named anchor aligns with an explicit world-frame target pose."
     },
     "get_object_tcp_transform": {
       "kind": "function",
@@ -807,8 +708,7 @@
           "annotation": "str"
         }
       ],
-      "doc": "Return the TCP-to-object transform for an object currently attached to an arm.",
-      "module": "_core"
+      "doc": "Return the TCP-to-object transform for an object currently attached to an arm."
     },
     "interpolate_anchor_joint_path": {
       "kind": "function",
@@ -870,8 +770,7 @@
           "default": "True"
         }
       ],
-      "doc": "Sweep an articulated object's joint(s) and move ``arm`` along the anchor arc.",
-      "module": "_core"
+      "doc": "Sweep an articulated object's joint(s) and move ``arm`` along the anchor arc."
     },
     "interpolate_anchor_to_anchor": {
       "kind": "function",
@@ -939,8 +838,7 @@
           "default": "None"
         }
       ],
-      "doc": "Move ``arm`` between two resolved anchor poses.",
-      "module": "_core"
+      "doc": "Move ``arm`` between two resolved anchor poses."
     },
     "init_epipette": {
       "kind": "function",
@@ -963,8 +861,7 @@
           "default": "True"
         }
       ],
-      "doc": "Connect to an epipette and register it under a logical name.",
-      "module": "_epipette"
+      "doc": "Connect to an epipette and register it under a logical name."
     },
     "epipette_aspirate": {
       "kind": "function",
@@ -985,8 +882,7 @@
           "default": "5"
         }
       ],
-      "doc": "Aspirate liquid with a named epipette.",
-      "module": "_epipette"
+      "doc": "Aspirate liquid with a named epipette."
     },
     "epipette_dispense": {
       "kind": "function",
@@ -1007,8 +903,7 @@
           "default": "5"
         }
       ],
-      "doc": "Dispense liquid with a named epipette.",
-      "module": "_epipette"
+      "doc": "Dispense liquid with a named epipette."
     },
     "epipette_tip_eject": {
       "kind": "function",
@@ -1019,8 +914,7 @@
           "annotation": "str"
         }
       ],
-      "doc": "Eject the tip from a named epipette.",
-      "module": "_epipette"
+      "doc": "Eject the tip from a named epipette."
     },
     "epipette_home": {
       "kind": "function",
@@ -1031,8 +925,7 @@
           "annotation": "str"
         }
       ],
-      "doc": "Home the epipette piston to position 0. Clears INVALID_PARAMETERS state from piston drift.",
-      "module": "_epipette"
+      "doc": "Home the epipette piston to position 0. Clears INVALID_PARAMETERS state from piston drift."
     },
     "epipette_blow_out": {
       "kind": "function",
@@ -1049,8 +942,7 @@
           "default": "10"
         }
       ],
-      "doc": "Blow out residual liquid from epipette tip to clear firmware 'liquid present' warning.",
-      "module": "_epipette"
+      "doc": "Blow out residual liquid from epipette tip to clear firmware 'liquid present' warning."
     },
     "epipette_disconnect": {
       "kind": "function",
@@ -1061,8 +953,7 @@
           "annotation": "str"
         }
       ],
-      "doc": "Disconnect a named epipette device.",
-      "module": "_epipette"
+      "doc": "Disconnect a named epipette device."
     },
     "epipette_reconnect": {
       "kind": "function",
@@ -1073,33 +964,27 @@
           "annotation": "str"
         }
       ],
-      "doc": "Re-establish a dropped BLE link to an already-initialized epipette.",
-      "module": "_epipette"
+      "doc": "Re-establish a dropped BLE link to an already-initialized epipette."
     },
     "EPIPETTE": {
       "kind": "constant",
-      "value": "'epipette'",
-      "module": "_epipette"
+      "value": "'epipette'"
     },
     "EPIPETTE_GREY": {
       "kind": "constant",
-      "value": "'epipette_grey'",
-      "module": "_epipette"
+      "value": "'epipette_grey'"
     },
     "EPIPETTE_ML": {
       "kind": "constant",
-      "value": "'epipette_ml'",
-      "module": "_epipette"
+      "value": "'epipette_ml'"
     },
     "EPIPETTE_GREY_BLE_NAME": {
       "kind": "constant",
-      "value": "<device-specific>",
-      "module": "_epipette"
+      "value": "<device-specific>"
     },
     "EPIPETTE_ML_BLE_NAME": {
       "kind": "constant",
-      "value": "<device-specific>",
-      "module": "_epipette"
+      "value": "<device-specific>"
     }
   }
 }

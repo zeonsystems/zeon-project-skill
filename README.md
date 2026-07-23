@@ -68,7 +68,7 @@ Exit 0 with no errors, 1 otherwise; `--json` for machine-readable output.
 ## Keeping it true as the platform evolves
 
 - `references/execution-functions.json` records the platform commit it was generated from. Regenerate with `python3 skills/zeon-projects/scripts/dev/gen_function_manifest.py <platform-checkout> --write`, diff, and commit.
-- `tests/run_tests.py` (CI) validates a known-good fixture (zero errors) and a deliberately broken one (27 planted defects, all must be reported).
+- `tests/run_tests.py` (CI) validates a known-good fixture (zero errors) and a deliberately broken one (every planted defect must be reported).
 - `evals/README.md` defines golden acceptance tasks for the skill; `evals/check.py` runs the deterministic parts.
 
 ## Install

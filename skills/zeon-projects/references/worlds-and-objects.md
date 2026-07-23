@@ -52,7 +52,7 @@ Both `"2.0"` and `"3.0"` schema versions exist in circulation; match whatever th
 - Some entries are synthetic primitives (workspace boundaries `x_min`…`z_max`, `table`, depth filters) — identified by a primitive `geometry.type` like `Cuboid` and empty `metadata`. Leave them alone. Real object instances have `geometry.type: "articulated"` with a `yaml_path`.
 - Fields are read by direct key access at load time — a missing key is a `KeyError`, not a default. Don't drop keys from an entry you're editing, and don't invent values for `attachment_spec` — copy from an existing instance of the same type.
 
-`worlds/<world_id>/live_state.yaml` — mutable per-object runtime state (tip-box counters, well calibration). The platform reads *and writes* it; edit only when the user asks for a specific state change (e.g. reset a tip counter).
+`worlds/<world_id>/live_state.yaml` — mutable per-object runtime state (tip-box counters, well calibration, pipette offsets). The platform reads *and writes* it; its schema, 1-based/well-label indexing conventions, and merge semantics are precise and unforgiving — read `references/live-state.md` before touching it or writing skills that use `get_world_state`/`set_world_state`.
 
 ## Objects — objects/<name>/
 

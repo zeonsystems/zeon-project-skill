@@ -8,3 +8,8 @@ def bad_skill(skill_result, count):
     move_arm(arm="left_arm")
     set_gripper(arm="left_arm", width_m=0.02)
     invented_function_xyz(42)
+
+
+def _read_state():
+    from .modules import get_world_state
+    return get_world_state("tipbox_10ul_1")

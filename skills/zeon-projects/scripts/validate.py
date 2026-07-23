@@ -70,8 +70,8 @@ ENGINE_INJECTED_PARAMS = {"current_item", "execution_id", "node_id"}
 # string other than "left_arm" — a wrong-arm motion, not an error.
 VALID_ARMS = {"left_arm", "right_arm"}
 
-# Annotation base names the catalog maps to parameter types; anything else
-# degrades the derived schema (metadata_loader._ANNOTATION_TYPE_MAP).
+# Annotation base names the platform maps to parameter types; anything else
+# degrades the derived schema.
 KNOWN_ANNOTATION_BASES = {
     "SkillObject", "str", "bool", "int", "float",
     "list", "List", "tuple", "Tuple", "Sequence",
@@ -354,8 +354,8 @@ def _check_skill_metadata(meta: dict, folder: str, where: str, report: Report) -
     if not isinstance(version, str) or not VERSION_RE.match(version):
         report.err(where, "version missing or not semver (e.g. \"1.0.0\")")
 
-    # Catalog-fatal: SkillMetadata requires a string description; a failing
-    # file silently drops the skill from the catalog.
+    # Catalog-fatal: the catalog schema requires a string description; a
+    # failing file silently drops the skill from the catalog.
     if not isinstance(meta.get("description"), str):
         report.err(where, "description missing or not a string (skill would be "
                           "silently dropped from the platform catalog)")
@@ -623,6 +623,22 @@ def _check_robotic_code(path: Path, folder: str, report: Report, manifest: dict,
         # Anchor / object-name cross-reference on literal calls.
         if fn_name in {"load_object_anchor", "get_object_pose", "update_object_joint_config"}:
             _check_object_literal_call(node, fn_name, where, report, world_info, project_root)
+
+        # live_state access keys strictly by instance id — a display name
+        # silently returns {} / creates a bogus entry.
+        if fn_name in {"get_world_state", "set_world_state"}:
+            first = None
+            for kw in node.keywords:
+                if kw.arg == "object_id" and isinstance(kw.value, ast.Constant):
+                    first = kw.value.value
+            if first is None and node.args and isinstance(node.args[0], ast.Constant):
+                first = node.args[0].value
+            if isinstance(first, str) and first in world_info.get("display_names", set()) \
+                    and first not in world_info.get("instance_keys", set()):
+                report.err(where, f"line {node.lineno}: {fn_name}({first!r}, …) passes a "
+                                  "display name — live_state keys strictly by instance id; "
+                                  "a name silently returns {} (and writes create a bogus "
+                                  "entry). Pass the SkillObject.id / world instance key")
 
     return sig_model
 
@@ -1020,6 +1036,8 @@ def _check_canvas_ui(canvas_ui: dict, root: Path, where: str, report: Report) ->
 def collect_world_info(root: Path) -> dict:
     """Map world-instance names/keys to object types, before validation."""
     name_to_type: dict[str, str] = {}
+    instance_keys: set[str] = set()
+    display_names: set[str] = set()
     for world_dir in _item_dirs(root / "worlds"):
         state = world_dir / "world_state.json"
         if not state.is_file():
@@ -1038,10 +1056,16 @@ def collect_world_info(root: Path) -> dict:
             otype = meta.get("type")
             if isinstance(otype, str):
                 name_to_type[key] = otype
+                instance_keys.add(key)
                 oname = meta.get("name")
                 if isinstance(oname, str):
                     name_to_type[oname] = otype
-    return {"name_to_type": name_to_type}
+                    display_names.add(oname)
+    return {
+        "name_to_type": name_to_type,
+        "instance_keys": instance_keys,
+        "display_names": display_names,
+    }
 
 
 def validate_worlds(root: Path, report: Report) -> tuple[int, set[str]]:

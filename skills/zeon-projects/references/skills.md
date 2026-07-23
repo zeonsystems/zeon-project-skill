@@ -114,7 +114,7 @@ The high-traffic surface:
 | `anchor_preapproach(anchor, default_standoff=0.0)` | World-xyz standoff point for an anchor dict. |
 | `update_object_joint_config(object_name, joint_config_update)` | **Commit** an articulation change to the world model — mandatory after sweeping a lid/drawer. |
 | `interpolate_anchor_to_anchor(…)` / `interpolate_anchor_joint_path(…)` | Arc-follow between anchor/joint configs (see manifest for args). |
-| `get_world_state(object_id)` / `set_world_state(object_id, …)` | Read/**merge** one object's `live_state.yaml` entry — keyed by instance id, not display name. |
+| `get_world_state(object_id)` / `set_world_state(object_id, …)` | Read/**merge** one object's `live_state.yaml` entry — keyed by instance id, not display name; nested maps replace wholesale. See `references/live-state.md`. |
 | `is_sim_mode()` | Branch sim-only behavior; several APIs are NOT sim-abstracted (`patterns.md`). |
 | `print_log(msg, …)` / `set_skill_variable` / `get_skill_variable` | Logging and run-scoped variables. |
 | `pause_for_user(message, on_resume=None, …)` / `pause_checkpoint` / `pause_aware_sleep` | Operator interaction; use `pause_aware_sleep` for long waits. |
@@ -122,7 +122,6 @@ The high-traffic surface:
 | `capture_image(arm, capture_name)` / `localize_object_tags(…)` | Vision. |
 | `init_epipette` / `epipette_aspirate` / `epipette_dispense` / `epipette_tip_eject` / `epipette_home` / … | Pipette control — attempts real Bluetooth **even in sim**; guard it. |
 | `load_liquid_state` / `record_transfer` / `is_transfer_done` | Per-execution liquid-transfer resume ledger. |
-| `openshelf_status` / `openshelf_find_item` / `openshelf_store_item` / … | Storage-cabinet LAN device. |
 
 `arm` is exactly `"left_arm"` or `"right_arm"` — **any other string silently
 selects the right arm** (no error). validate.py errors on bad literals.
@@ -130,19 +129,35 @@ selects the right arm** (no error). validate.py errors on bad literals.
 For an object not yet materialized into the project, read its real anchors
 from the mesh database first: `scripts/mesh_object_info.py <name>`.
 
-## Composing skills (meta skills)
+## Composing skills — the naming contract and meta skills
 
-A skill may call sibling skills — `skills/` is on `sys.path` at execution time:
+**Instrument skills follow `<instrument>_<action>`**: one atomic skill per
+physical action — `centrifuge_open`, `centrifuge_load`, `centrifuge_run`,
+`centrifuge_unload`, `centrifuge_close`. Keep each atomic skill to one action
+with a verifiable outcome. When a one-step interface is wanted, add a **meta
+skill** named after the instrument or protocol (`centrifuge`) that sequences
+the atomics. Follow this contract when adding skills — it keeps the project's
+vocabulary predictable, so new skills slot into existing meta skills and
+workflows instead of inventing parallel names (`put_plate_in_sealer`).
+
+Meta skills matter more than they look: they are where reliability lives
+(attempt → verify → retry → escalate wraps the atomic calls — see
+`references/patterns.md`), they keep workflows small (one node per protocol
+step instead of six), and combined with transition poses
+(`references/transition-poses.md`) they make sequencing safe — every atomic
+starts and ends in a known configuration, so the meta skill is pure
+sequencing plus the explicit arm-clearing moves.
+
+Mechanically: a skill calls siblings via `sys.path` —
 
 ```python
-from epipette_grey_pick.robotic_code import epipette_grey_pick
+from centrifuge_open.robotic_code import centrifuge_open
+from centrifuge_load.robotic_code import centrifuge_load
 ```
 
-A "meta" skill sequences several atomic skills in one callable and
-conventionally carries a `meta` tag. Prefer composing existing skills over
-re-implementing their bodies; import a sibling's public function only. For the
-reliability shape (attempt → verify → retry → escalate) and the `shared_state`
-pick/place handoff, see `references/patterns.md`.
+— and conventionally carries a `meta` tag in `metadata.yaml`. Prefer
+composing existing skills over re-implementing their bodies; import a
+sibling's public function only.
 
 ## Safety when writing motion code
 

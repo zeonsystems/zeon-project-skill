@@ -51,12 +51,11 @@ that skill's result dict and put the conditional node directly after it.
 - Inside a collection loop, a skill receives the current element through a
   parameter literally named **`current_item`** — declare it in the skill's
   signature; the engine injects it.
-- Loop `node_id`s are interpolated into executor expressions: they must be
-  identifier-safe (`fill_loop`, not `fill-loop`). A hyphenated id parses as
-  subtraction and kills the run **mid-run** with a baffling
-  `NameError: name 'loop_fill' is not defined` the first time the loop's edges
-  are evaluated — possibly after the robot has already executed earlier motion
-  nodes; ids with spaces fail earlier, at graph build.
+- Loop `node_id`s must be identifier-safe (`fill_loop`, not `fill-loop`). A
+  hyphenated id kills the run **mid-run** with a baffling internal name error
+  the first time the loop's edges are evaluated — possibly after the robot has
+  already executed earlier motion nodes; ids with spaces fail earlier, at
+  graph build.
 
 ## How parameters reach a skill
 

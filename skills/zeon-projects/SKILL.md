@@ -37,6 +37,7 @@ canvas/<workflow_id>_screen.tsx  # optional custom run-setup UI
 | **Motion-skill idioms** (anchors, snapping, shared_state, sim honesty, retries) | `references/patterns.md` |
 | Transition poses (named safe waypoints for relocating an arm) | `references/transition-poses.md` |
 | Worlds and objects (`world_state.json`, URDF + object model) | `references/worlds-and-objects.md` |
+| `live_state.yaml` (tip counters, calibration, indexing conventions) | `references/live-state.md` |
 | Canvas run UIs (`.tsx`) | `references/canvas.md` |
 | The full robot API with exact signatures | `references/execution-functions.json` |
 
@@ -67,7 +68,7 @@ These are the platform's real constraints — the validator catches most of them
 - **A skill's parameters come from its Python function signature**, not from `metadata.yaml`. Edit the signature to change the parameters.
 - **Execution functions must exist and be called correctly.** Skill code imports the robot API via `modules.py`; a wrong name or argument fails at runtime, not at save time. The full API with exact signatures is vendored in `references/execution-functions.json` — check it (validate.py lints against it too). Not there and not used in this project's skills → ask the user.
 - **Workflows bind by reference.** Skill node parameters use `{"$input": <name>}` against declared workflow `inputs`; object inputs are world object *names*, never UUIDs.
-- **Naming is strict**: lowercase `[a-z_][a-z0-9_-]{0,63}` for item folders; use underscores (no hyphens) in `skill_id` / `workflow_id`. Strict JSON — no comments, no trailing commas.
+- **Naming is strict**: lowercase `[a-z_][a-z0-9_-]{0,63}` for item folders; use underscores (no hyphens) in `skill_id` / `workflow_id`. Strict JSON — no comments, no trailing commas. Instrument skills follow the `<instrument>_<action>` contract (`centrifuge_load`, `centrifuge_run`, …) with an optional meta skill (`centrifuge`) sequencing them — see `references/skills.md`.
 - **Long Cartesian slews fail IK.** Relocating an arm between instruments with free-space `move_arm` invites IK failures and elbow flips mid-run. Route through the named **transition poses** (`references/transition-poses.md`) — joint-space waypoints that need no IK solve — and start/end skills at one so skills compose.
 - **Never hand-author binaries** (meshes, voxel grids). Real object geometry comes from the mesh database (`zeon new object`, or the World Builder app).
 

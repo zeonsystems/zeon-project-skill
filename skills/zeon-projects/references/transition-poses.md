@@ -98,6 +98,43 @@ RIGHT_BACK_DOWN_FROM_OUTER = [-3.095, -0.421, -1.313, 0.008, 1.692, 0.087]
 `LEFT_ARM_STOW_JOINTS` / `RIGHT_ARM_STOW_JOINTS` — treat them as one pose,
 don't define both.
 
+## Dual-arm coordination — the INNER rule
+
+INNER means *toward the other arm*. **Never command an `INNER_*` move while
+the other arm is also toward the center.** Before swinging an arm INNER,
+clear the other arm to an `OUTER_*`, `FORWARD_*`, or `BACK_*` pose — as an
+explicit prior step, not an assumption:
+
+```python
+move_arm_js(arm="right_arm", joint_angles=RIGHT_OUTER_DOWN, speed=0.5)  # clear first
+move_arm_js(arm="left_arm", joint_angles=LEFT_INNER_DOWN, speed=0.5)   # then swing in
+```
+
+Two skills that are each individually safe can collide when sequenced if
+both assume the center is free — in a meta-skill, sequence the clearing move
+explicitly. When authoring a skill that goes INNER, either clear the other
+arm yourself or state the precondition in the skill's description so
+workflow authors know.
+
+## Choosing the route dynamically
+
+There is no static instrument→pose map — instrument positions vary per
+world, so **read the world to pick the route**. Get the target object's
+world position (`get_object_pose(name)` at run time; the instance's
+`mount.world_P_body_fixed.xyz` in `world_state.json` at authoring time)
+and derive the azimuth:
+
+- **X sign → FORWARD vs BACK**: +X is over the deck (`FORWARD_*`); −X is
+  behind (`BACK_*`, mind the branch rule).
+- **Y vs the centerline → OUTER vs INNER**: an object out on the acting
+  arm's own side is reached via `OUTER_*`; an object at or past the
+  centerline via `INNER_*` (which triggers the dual-arm rule above).
+- **Arm choice**, when the task allows either: prefer the arm on whose side
+  the object sits — it reaches via OUTER and avoids the INNER coordination
+  dance entirely.
+
+Then: nearest transition pose → final anchor-driven approach.
+
 ## Using them in skills
 
 - **Constants live in the project**, per platform convention: define them in

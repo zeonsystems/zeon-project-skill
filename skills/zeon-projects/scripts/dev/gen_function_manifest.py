@@ -31,12 +31,34 @@ from pathlib import Path
 PKG_REL = "services/execution/src/execution/execution_functions"
 OUT_REL = Path(__file__).resolve().parent.parent.parent / "references" / "execution-functions.json"
 
+# API families excluded from the public manifest (e.g. unannounced
+# integrations) are listed one prefix per line in a git-ignored local file
+# next to this script; names matching any prefix are dropped even though
+# they are in __all__.
+_EXCLUSIONS_FILE = Path(__file__).resolve().parent / "manifest-exclusions.txt"
+
+
+def _excluded_prefixes() -> tuple[str, ...]:
+    try:
+        return tuple(
+            line.strip() for line in _EXCLUSIONS_FILE.read_text(encoding="utf-8").splitlines()
+            if line.strip() and not line.strip().startswith("#")
+        )
+    except OSError:
+        return ()
+
 
 def _literal(node: ast.expr) -> str:
     try:
         return repr(ast.literal_eval(node))
     except (ValueError, SyntaxError):
         return ast.unparse(node)
+
+
+def _strip_module(entry: dict) -> dict:
+    """Drop the internal module-split field — the public manifest documents
+    the API surface, not how the platform organizes its source."""
+    return {k: v for k, v in entry.items() if k != "module"}
 
 
 def _param(name: str, kind: str, annotation, default) -> dict:
@@ -128,13 +150,16 @@ def main(argv: list[str]) -> int:
 
     functions = {}
     missing = []
+    excluded = _excluded_prefixes()
     for name in exported:
+        if excluded and name.startswith(excluded):
+            continue
         if name in defs:
-            functions[name] = defs[name]
+            functions[name] = _strip_module(defs[name])
         else:
             # Re-exported from outside the package (e.g. SkillObject from
             # protocol_schema) — record presence without a local definition.
-            functions[name] = {"kind": "reexport", "module": ""}
+            functions[name] = {"kind": "reexport"}
             missing.append(name)
 
     manifest = {

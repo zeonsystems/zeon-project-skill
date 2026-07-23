@@ -38,6 +38,7 @@ EXPECTED_BROKEN = [
     "safe=False",
     "invented_function_xyz",                    # NameError lint
     "never returns a dict with a 'success' key",
+    "passes a display name",                    # live_state keyed by instance id
     # workflows
     "!= filename stem",                         # workflow_id vs file
     "duplicate workflow_id",

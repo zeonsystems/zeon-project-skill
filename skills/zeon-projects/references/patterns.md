@@ -111,36 +111,32 @@ collides with a lid it believes is closed. Exact signatures: the manifest,
 
 ## shared_state: cross-skill handoff for pick/place pairs
 
-`from execution.skill_editing import shared_state` is a mutable module-level
-namespace that lives for the **executor process** — it is *not* cleared between
-runs (unlike `set_skill_variable` storage, which resets at each execution
-start). Overwrite stashes at the start of the producing skill and treat a guard
-hit as possibly stale from a previous run. Conventions:
+`from execution.skill_editing import shared_state` is a mutable namespace
+that is **not cleared between runs** (unlike `set_skill_variable` storage,
+which resets at each execution start). Overwrite stashes at the start of the
+producing skill and treat a guard hit as possibly stale from a previous run.
+Conventions:
 
 - Prefix attributes with the producing skill: `epipette_grab_home_pose`,
   `wellplate_grab_grasp`.
 - The **pick** skill captures poses *while the object is still seated* (before
   lifting) and stashes them; the **place** skill replays the stash instead of
   re-resolving anchors. Re-resolving a grasp anchor after pickup returns the
-  *elevated* pose — driving the arm to it on place is a crash. Three of the
-  platform's own place skills work this way; copy it.
+  *elevated* pose — driving the arm to it on place is a crash. The platform's
+  own place skills work this way; copy it.
 - Guard reads: `getattr(shared_state, "x", None)` with a clear raise when the
   pick skill hasn't run.
 
 ## live_state.yaml: consumables and calibration
 
-`get_world_state(object_id)` / `set_world_state(object_id, updates)` read and
-**merge** one object's entry in the world's `live_state.yaml`, keyed by the
-world *instance key* (`<type>_<uuid>`) — not the display name. Idioms:
-
-- Tip-box bookkeeping: `active: true` + `tip_index: N`, incremented after each
-  attach.
-- Calibration offsets: per-object maps of small **`[dx, dy]` XY corrections**
-  (2-element arrays keyed by tip index / well name as strings), applied on top
-  of anchor poses. Match this shape exactly — existing skills unpack
-  `dx, dy = cal.get(str(key), [0.0, 0.0])`, so a 3-element entry breaks them.
-- Pass `SkillObject.id` (the instance id) to these functions, never the
-  display name.
+The full contract lives in `references/live-state.md` — read it before writing
+any skill that touches tips, wells, or calibration. The three rules that cause
+silent physical errors when violated: **tip indexing is 1-based** (`"1".."96"`,
+advance and stop at 96 — never `% 96`), **wells are keyed by label**
+(`"A1".."H12"`, identical to anchor names), and **`get_world_state`/
+`set_world_state` key by `SkillObject.id`** — a display name silently returns
+`{}` and zeros out your calibration. Read idiom:
+`dx, dy = get_world_state(obj.id).get("calibration", {}).get(str(key), [0.0, 0.0])`.
 
 ## Sim honesty — what is and isn't simulated
 
@@ -156,6 +152,8 @@ world *instance key* (`<type>_<uuid>`) — not the display name. Idioms:
 
 ## Reliability: attempt → verify → retry → escalate
 
+This shape lives in **meta skills** — the `<instrument>` skill that sequences
+the `<instrument>_<action>` atomics (naming contract: `references/skills.md`).
 The platform's robust skills wrap flaky physical steps like this:
 
 ```python
