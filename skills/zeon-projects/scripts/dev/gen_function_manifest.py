@@ -140,13 +140,17 @@ def main(argv: list[str]) -> int:
                             "module": py.stem,
                         })
 
+    # Provenance stamp: the DATE of the platform checkout, never its commit sha
+    # or branch. This file ships in a public repo; internal VCS identifiers do
+    # not belong in it. A date is all the staleness signal a reader needs, and
+    # maintainers can map it back to a commit from their own checkout.
     try:
-        sha = subprocess.run(
-            ["git", "-C", str(repo), "rev-parse", "--short", "HEAD"],
+        stamp = subprocess.run(
+            ["git", "-C", str(repo), "log", "-1", "--format=%cs"],
             capture_output=True, text=True, check=True,
         ).stdout.strip()
     except Exception:
-        sha = "unknown"
+        stamp = "unknown"
 
     functions = {}
     missing = []
@@ -163,7 +167,7 @@ def main(argv: list[str]) -> int:
             missing.append(name)
 
     manifest = {
-        "source": f"execution.execution_functions @ {sha}",
+        "source": f"execution.execution_functions, platform source dated {stamp}",
         "note": "Curated skill-facing API (__all__). Regenerate with scripts/dev/gen_function_manifest.py.",
         "functions": functions,
     }

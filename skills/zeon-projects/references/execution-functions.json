@@ -1,5 +1,5 @@
 {
-  "source": "execution.execution_functions @ 74bb79d8",
+  "source": "execution.execution_functions, platform source dated 2026-07-24",
   "note": "Curated skill-facing API (__all__). Regenerate with scripts/dev/gen_function_manifest.py.",
   "functions": {
     "SkillObject": {
