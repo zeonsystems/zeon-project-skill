@@ -1,5 +1,5 @@
 {
-  "source": "execution.execution_functions @ adeb55bb",
+  "source": "execution.execution_functions @ 74bb79d8",
   "note": "Curated skill-facing API (__all__). Regenerate with scripts/dev/gen_function_manifest.py.",
   "functions": {
     "SkillObject": {
@@ -36,6 +36,69 @@
         }
       ],
       "doc": "Return the current execution's artifact directory."
+    },
+    "project_data_dir": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "subdir",
+          "kind": "positional",
+          "annotation": "str | None",
+          "default": "None"
+        },
+        {
+          "name": "create",
+          "kind": "positional",
+          "annotation": "bool",
+          "default": "False"
+        }
+      ],
+      "doc": "Return the active project's authoring data folder ``<project_root>/data[/subdir]``."
+    },
+    "api_request": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "url",
+          "kind": "positional"
+        },
+        {
+          "name": "method",
+          "kind": "positional",
+          "default": "'GET'"
+        },
+        {
+          "name": "json_body",
+          "kind": "keyword_only",
+          "default": "None"
+        },
+        {
+          "name": "params",
+          "kind": "keyword_only",
+          "default": "None"
+        },
+        {
+          "name": "headers",
+          "kind": "keyword_only",
+          "default": "None"
+        },
+        {
+          "name": "save_name",
+          "kind": "keyword_only",
+          "default": "None"
+        },
+        {
+          "name": "save_to_project",
+          "kind": "keyword_only",
+          "default": "False"
+        },
+        {
+          "name": "timeout",
+          "kind": "keyword_only",
+          "default": "_DEFAULT_TIMEOUT_S"
+        }
+      ],
+      "doc": "Call an external HTTP API and optionally save the response with the project."
     },
     "liquid_state_path": {
       "kind": "function",
@@ -453,6 +516,11 @@
         {
           "name": "capture_name",
           "kind": "positional"
+        },
+        {
+          "name": "save_to_project",
+          "kind": "positional",
+          "default": "False"
         }
       ],
       "doc": "Capture image from specified arm and save to readouts directory."
@@ -601,10 +669,10 @@
           "annotation": "dict"
         },
         {
-          "name": "default_standoff",
+          "name": "standoff",
           "kind": "positional",
-          "annotation": "float",
-          "default": "0.0"
+          "annotation": "float | None",
+          "default": "None"
         }
       ],
       "doc": "Compute pre-approach position at standoff distance from anchor."
@@ -970,19 +1038,19 @@
       "kind": "constant",
       "value": "'epipette'"
     },
-    "EPIPETTE_GREY": {
+    "EPIPETTE_10UL": {
       "kind": "constant",
-      "value": "'epipette_grey'"
+      "value": "'epipette_10ul'"
     },
-    "EPIPETTE_ML": {
+    "EPIPETTE_120UL": {
       "kind": "constant",
-      "value": "'epipette_ml'"
+      "value": "'epipette_120ul'"
     },
-    "EPIPETTE_GREY_BLE_NAME": {
+    "EPIPETTE_10UL_BLE_NAME": {
       "kind": "constant",
       "value": "<device-specific>"
     },
-    "EPIPETTE_ML_BLE_NAME": {
+    "EPIPETTE_120UL_BLE_NAME": {
       "kind": "constant",
       "value": "<device-specific>"
     }

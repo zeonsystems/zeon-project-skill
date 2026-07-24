@@ -20,6 +20,8 @@ workflows/<workflow_id>.json # skill graph — one file per workflow
 worlds/<world_id>/           # world_state.json (+ live_state.yaml sidecar)
 objects/<name>/              # <name>.urdf + <name>.object_model.yaml
 canvas/<workflow_id>_screen.tsx  # optional custom run-setup UI
+inputs/<preset>.json             # optional input presets for canvases
+data/                            # per-run artifacts (captures/logs/api, keyed by execution_id)
 ```
 
 ## Ground truth, in order

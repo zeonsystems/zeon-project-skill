@@ -54,6 +54,9 @@ EXPECTED_BROKEN = [
     # canvas
     "filename stem must match",
     "import of 'axios'",
+    # input presets
+    "inputs/bad.json",                          # malformed preset (platform skips silently)
+    "matches no declared workflow input",
     # project.json
     "active_workflow 'ghost_flow'",
 ]

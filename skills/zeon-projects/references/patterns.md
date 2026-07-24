@@ -11,14 +11,18 @@ All geometry comes from anchors. Grip widths and standoffs ride on the anchor's
 ```python
 grasp = load_object_anchor(plate.id, "grasp_shortside")
 # grasp: {xyz, rpy, wxyz, standoff, width, gripper_variant, object_id}
-pre = anchor_preapproach(grasp, default_standoff=0.10)   # world-xyz standoff point
+pre = anchor_preapproach(grasp)   # world-xyz standoff point, driven by the anchor
 move_arm(arm="left_arm", position=pre, orientation=grasp["rpy"], speed=100)
 move_arm(arm="left_arm", position=grasp["xyz"], orientation=grasp["rpy"], speed=30)
 set_gripper(arm="left_arm", width_m=grasp["width"])       # from the anchor, not a constant
 ```
 
-When no grasp block exists, `standoff`/`width` come back `0.0` — fall back to
-an explicit value then, but say so. Hardcoded widths are what make a skill work
+`standoff` resolves to the anchor's declared value, else **0.05** — and an
+anchor that explicitly declares `0.0` gets no backoff (authorable). Let the
+anchor drive: call `anchor_preapproach(grasp)` bare, and pass `standoff=` only
+to deliberately override (any number wins over the anchor, including `0.0`).
+`width` still comes back `0.0` when no grasp block exists — fall back to an
+explicit value then, but say so. Hardcoded widths are what make a skill work
 for exactly one piece of labware; when geometry is wrong, the fix is usually
 **re-teach the anchor**, not edit the code.
 
@@ -49,7 +53,7 @@ from the object's own anchors:
 
 ```python
 grasp = load_object_anchor(obj.id, "grasp")
-pre = anchor_preapproach(grasp, default_standoff=0.06)
+pre = anchor_preapproach(grasp, standoff=0.06)           # explicit override for a known offset
 d = [g - p for g, p in zip(grasp["xyz"], pre)]           # unit direction × distance
 move_relative(arm="left_arm", delta_xyz=[x * 0.5 for x in d], speed=20)
 ```

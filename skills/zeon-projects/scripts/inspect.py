@@ -253,7 +253,25 @@ def run(root: Path) -> dict:
         "objects": inspect_objects(root),
         "canvases": sorted(p.name for p in (root / "canvas").glob("*.tsx"))
         if (root / "canvas").is_dir() else [],
+        "input_presets": inspect_presets(root),
     }
+
+
+def inspect_presets(root: Path) -> list[dict]:
+    out = []
+    idir = root / "inputs"
+    if not idir.is_dir():
+        return out
+    for p in sorted(idir.glob("*.json")):
+        entry: dict = {"id": p.stem}
+        data = _try_json(p)
+        if isinstance(data, dict):
+            entry["label"] = data.get("_label")
+            entry["keys"] = sorted(k for k in data if k != "_label")
+        else:
+            entry["error"] = "unparseable"
+        out.append(entry)
+    return out
 
 
 def _fmt_params(params: list[dict]) -> str:
@@ -314,6 +332,14 @@ def print_text(data: dict) -> None:
         print(f"\n## Canvases ({len(data['canvases'])})")
         for c in data["canvases"]:
             print(f"  canvas/{c}")
+
+    if data["input_presets"]:
+        print(f"\n## Input presets ({len(data['input_presets'])})")
+        for p in data["input_presets"]:
+            if p.get("error"):
+                print(f"  inputs/{p['id']}.json  ERROR: {p['error']}")
+            else:
+                print(f"  {p['id']}  ({p.get('label')})  keys: {', '.join(p.get('keys', []))}")
 
 
 def main(argv: list[str]) -> int:

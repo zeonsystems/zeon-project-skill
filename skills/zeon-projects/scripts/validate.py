@@ -713,14 +713,15 @@ def _object_anchors(root: Path, obj_type: str) -> Optional[set[str]]:
 # ---------------------------------------------------------------------------
 
 def validate_workflows(root: Path, report: Report,
-                       skill_sigs: dict[str, dict]) -> tuple[int, set[str], set[str]]:
+                       skill_sigs: dict[str, dict]) -> tuple[int, set[str], set[str], set[str]]:
     workflows_dir = root / "workflows"
     workflow_ids: set[str] = set()
     id_to_file: dict[str, str] = {}
     canvas_refs: set[str] = set()
+    all_input_names: set[str] = set()
     count = 0
     if not workflows_dir.is_dir():
-        return 0, workflow_ids, canvas_refs
+        return 0, workflow_ids, canvas_refs, all_input_names
 
     for path in sorted(workflows_dir.glob("*.json")):
         count += 1
@@ -756,6 +757,7 @@ def validate_workflows(root: Path, report: Report,
             report.err(where, "missing field: objects (use [] when empty)")
 
         input_names, array_inputs = _check_inputs(wf.get("inputs"), where, report)
+        all_input_names |= input_names
 
         nodes = wf.get("nodes")
         edges = wf.get("edges")
@@ -775,7 +777,39 @@ def validate_workflows(root: Path, report: Report,
             if ref:
                 canvas_refs.add(ref)
 
-    return count, workflow_ids, canvas_refs
+    return count, workflow_ids, canvas_refs, all_input_names
+
+
+def validate_input_presets(root: Path, report: Report,
+                           all_input_names: set[str]) -> int:
+    """inputs/*.json presets. The platform silently skips malformed files —
+    they just vanish from the canvas dropdown — so parse failures are local
+    errors here."""
+    inputs_dir = root / "inputs"
+    if not inputs_dir.is_dir():
+        return 0
+    count = 0
+    for path in sorted(inputs_dir.glob("*.json")):
+        count += 1
+        rel = f"inputs/{path.name}"
+        data = _load_json(path, report)
+        if data is None:
+            continue
+        if not isinstance(data, dict):
+            report.err(rel, "preset must be a JSON object of input values "
+                            "(the platform silently skips this file)")
+            continue
+        label = data.get("_label")
+        if not isinstance(label, str) or not label.strip():
+            report.warn(rel, "no _label — the preset has no display name in the canvas")
+        if all_input_names:
+            for key in data:
+                if key == "_label":
+                    continue
+                if key not in all_input_names:
+                    report.warn(rel, f"preset key {key!r} matches no declared workflow "
+                                     "input in this project (typo?)")
+    return count
 
 
 def _check_inputs(inputs: Any, where: str, report: Report) -> tuple[set[str], set[str]]:
@@ -1240,8 +1274,13 @@ def validate_files(root: Path, report: Report) -> None:
         rel = "/".join(rel_parts)
         size = path.stat().st_size
         if size >= BLOB_CAP:
-            report.err(rel, f"{size} bytes ≥ the 16 MB sync blob cap — every future "
-                            "commit/push of this project will fail")
+            if rel_parts[0] == "data":
+                # Run-artifact push skips oversized files instead of failing.
+                report.warn(rel, f"{size} bytes ≥ the 16 MB blob cap — this artifact "
+                                 "will be silently skipped by the run-end sync")
+            else:
+                report.err(rel, f"{size} bytes ≥ the 16 MB sync blob cap — every future "
+                                "commit/push of this project will fail")
         elif size >= BLOB_WARN and rel_parts[0] != "data":
             report.warn(rel, f"{size} bytes is close to the 16 MB sync blob cap")
         if path.suffix.lower() in MESH_SUFFIXES and rel_parts[0] not in {"data", "worlds"}:
@@ -1262,10 +1301,12 @@ def run(root: Path) -> dict:
     world_info = collect_world_info(root)
     project = validate_project_json(root, report)
     n_skills, skill_sigs = validate_skills(root, report, manifest, world_info)
-    n_workflows, workflow_ids, canvas_refs = validate_workflows(root, report, skill_sigs)
+    n_workflows, workflow_ids, canvas_refs, all_input_names = validate_workflows(
+        root, report, skill_sigs)
     n_worlds, world_names = validate_worlds(root, report)
     n_objects = validate_objects(root, report)
     n_canvases = validate_canvases(root, canvas_refs, report)
+    n_presets = validate_input_presets(root, report, all_input_names)
     validate_files(root, report)
     validate_active_refs(project, workflow_ids, world_names, report)
     return {
@@ -1278,6 +1319,7 @@ def run(root: Path) -> dict:
             "worlds": n_worlds,
             "objects": n_objects,
             "canvases": n_canvases,
+            "input_presets": n_presets,
         },
     }
 
@@ -1301,8 +1343,9 @@ def main(argv: list[str]) -> int:
     else:
         s = result["summary"]
         print(f"{root}")
+        extras = f", {s['input_presets']} input presets" if s.get("input_presets") else ""
         print(f"  {s['skills']} skills, {s['workflows']} workflows, {s['worlds']} worlds, "
-              f"{s['objects']} objects, {s['canvases']} canvases")
+              f"{s['objects']} objects, {s['canvases']} canvases{extras}")
         for e in result["errors"]:
             print(f"  ERROR    {e['where']}: {e['msg']}")
         for w in result["warnings"]:

@@ -18,7 +18,12 @@ objects/<name>/
 ├── <name>.urdf                  # kinematics/geometry references
 └── <name>.object_model.yaml     # anchors, parts, articulations
 canvas/<workflow_id>_screen.tsx  # optional custom run UI per workflow
-data/                            # run artifacts (never authored by hand)
+inputs/<preset>.json             # optional input presets surfaced to canvases (see references/canvas.md)
+data/                            # run artifacts, keyed per run by execution_id:
+├── captures/<execution_id>/     #   camera snapshots (capture_image)
+├── logs/<execution_id>/         #   run-log mirrors (print_log runlog lines)
+├── api/<execution_id>/          #   saved api_request responses
+└── runs/                        #   reserved, local-only — never synced, never authored
 ```
 
 A fresh `zeon new project` seeds a runnable **pipette demo** (workflow `pipette_demo`, world `pipette_demo_world`, six skills — `epipette_grey_pick`/`_attach`/`_aspirate`/`_eject`, `epipette_tip_check`, `laser_read` — 17 objects, one canvas). Those files are reference material — copy their patterns into new files; don't overwrite them unless the user asks.
@@ -91,5 +96,6 @@ Other notes:
 - `zeon init` (link a hand-authored directory to a new cloud project) requires `skills/`, `workflows/`, and `worlds/` to exist, uses the **directory name** as the cloud project name, and refuses when `.zeon/` already exists or the name is taken. It commits and pushes everything present.
 - Platform-side creation paths sanitize names to `[a-z0-9_]` (spaces/hyphens → underscores) — use underscores everywhere and local names will round-trip identically.
 - Cloud blobs are capped at 16 MB (one oversized file breaks every future push of the project — validate.py checks); projects are text — binaries live in the mesh database.
+- **Run artifacts sync themselves**: when a run ends, the app pushes `data/captures|logs|api/` to the cloud (oversized files are skipped, not fatal; `data/runs/` is excluded). Capturing into the project is **opt-in per call** — pass `save_to_project=True` on `capture_image`/`print_log`/`api_request` when the run record should keep the artifact. Skills writing their own artifacts use `project_data_dir(...)` rather than hand-building paths.
 - Auth is a `zat_…` token in `.env` (or `~/.zeon/.env`). It is a secret: never read, print, or commit it.
 - Workflows aren't run from the CLI: sim runs happen in the Zeon web app; hardware runs are started from the lab machine's local UI.

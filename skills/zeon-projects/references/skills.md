@@ -82,7 +82,7 @@ from .modules import (
 def my_skill(plate, speed: float = 30):
     print_log("Starting my_skill")
     grasp = load_object_anchor(plate.id, "grasp_shortside")
-    pre = anchor_preapproach(grasp, default_standoff=0.10)
+    pre = anchor_preapproach(grasp)   # standoff from the anchor (declared, else 0.05)
     move_arm_js(arm="left_arm", joint_angles=LEFT_ARM_STOW_JOINTS, speed=0.5)
     move_arm(arm="left_arm", position=pre, orientation=grasp["rpy"], speed=100, wait=True)
     move_arm(arm="left_arm", position=grasp["xyz"], orientation=grasp["rpy"],
@@ -110,16 +110,18 @@ The high-traffic surface:
 | `attach_object_to_arm(object_id, arm)` / `detach_object_from_arm(object_id)` | Collision-tracking attach state — pair with snaps (`patterns.md`). |
 | `snap_object_anchor_to_world_pose(object_id, anchor_name, xyz, wxyz)` / `snap_object_to_world_pose(…)` | Assert (not measure) an object pose. |
 | `get_object_pose(object_name, index=None)` | `{xyz, rpy, wxyz, object_id}`; raises `ValueError` if absent. |
-| `load_object_anchor(object_name, anchor_name, index=None, joint_config=None)` | Returns `{xyz, rpy, wxyz, standoff, width, gripper_variant, object_id}`. |
-| `anchor_preapproach(anchor, default_standoff=0.0)` | World-xyz standoff point for an anchor dict. |
+| `load_object_anchor(object_name, anchor_name, index=None, joint_config=None)` | Returns `{xyz, rpy, wxyz, standoff, width, gripper_variant, object_id}`. `standoff` is the anchor's declared value, else **0.05** (an explicit `0.0` in the anchor is honored — no backoff). |
+| `anchor_preapproach(anchor, standoff=None)` | World-xyz standoff point. `standoff` is an **override**: `None` uses the anchor's own value; any number (including `0.0`) wins over the anchor. The old `default_standoff=` kwarg is gone — passing it TypeErrors. |
 | `update_object_joint_config(object_name, joint_config_update)` | **Commit** an articulation change to the world model — mandatory after sweeping a lid/drawer. |
 | `interpolate_anchor_to_anchor(…)` / `interpolate_anchor_joint_path(…)` | Arc-follow between anchor/joint configs (see manifest for args). |
 | `get_world_state(object_id)` / `set_world_state(object_id, …)` | Read/**merge** one object's `live_state.yaml` entry — keyed by instance id, not display name; nested maps replace wholesale. See `references/live-state.md`. |
 | `is_sim_mode()` | Branch sim-only behavior; several APIs are NOT sim-abstracted (`patterns.md`). |
-| `print_log(msg, …)` / `set_skill_variable` / `get_skill_variable` | Logging and run-scoped variables. |
+| `print_log(msg, …)` / `set_skill_variable` / `get_skill_variable` | Logging and run-scoped variables. Run-log lines (`runlog=True`) can be mirrored into `data/logs/<execution_id>/` with `save_to_project=True` (off by default). |
 | `pause_for_user(message, on_resume=None, …)` / `pause_checkpoint` / `pause_aware_sleep` | Operator interaction; use `pause_aware_sleep` for long waits. |
 | `send_slack(…)` / `ask_user_slack(…)` | Real Slack messages — **also from sim runs**; guard with `is_sim_mode()`. |
-| `capture_image(arm, capture_name)` / `localize_object_tags(…)` | Vision. |
+| `capture_image(arm, capture_name, save_to_project=False)` / `localize_object_tags(…)` | Vision. Pass `save_to_project=True` to keep the snapshot in `data/captures/<execution_id>/<name>/` for the run record (off by default). |
+| `api_request(url, method="GET", json_body=None, params=None, headers=None, save_name=None, save_to_project=False, timeout=…)` | Generic external HTTP call. **Never raises** — check the returned result dict, like the device verbs. Pass the URL in as a workflow input/parameter, don't hardcode endpoints. With `save_name` and `save_to_project=True`, the response is saved to `data/api/<execution_id>/<save_name>.json`. |
+| `project_data_dir(subdir=None, create=False)` | Path to `<project_root>/data[/subdir]` for skill-authored artifacts; returns `None` when no project is bound — guard for it. Path parts are sanitized (no `../`). |
 | `init_epipette` / `epipette_aspirate` / `epipette_dispense` / `epipette_tip_eject` / `epipette_home` / … | Pipette control — attempts real Bluetooth **even in sim**; guard it. |
 | `load_liquid_state` / `record_transfer` / `is_transfer_done` | Per-execution liquid-transfer resume ledger. |
 
