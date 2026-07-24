@@ -1,5 +1,7 @@
 # Canvas — canvas/<workflow_id>_screen.tsx
 
+> Hosted docs: [Creating a canvas](https://readme.zeonsystems.app/docs/creating-a-canvas.md)
+
 A canvas is an optional custom React UI that replaces the auto-generated input form when a workflow is run. Most workflows don't need one — the auto-form covers declared inputs. Build a canvas when the user wants richer input UX (plate-map pickers, computed values, guided setup).
 
 ## The contract

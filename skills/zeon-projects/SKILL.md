@@ -28,7 +28,8 @@ data/                            # per-run artifacts (captures/logs/api, keyed b
 
 1. **The project itself.** Existing skills/workflows/worlds are working examples; the project's `CLAUDE.md` carries project-specific rules. Pattern-match what's already there before consulting anything else.
 2. **The `zeon` CLI** (`zeon --help`), when installed — its scaffolds are canonical.
-3. **`references/` in this skill** — accurate format references for each file type, verified against the platform source. Load only what you need:
+3. **`references/` in this skill** — accurate format references for each file type, verified against the platform source. Offline, and the fastest thing to reach for. Load only what you need (table below).
+4. **The hosted docs — <https://readme.zeonsystems.app>.** A superset of these references, and the freshest source. Append `.md` to any page URL for clean markdown (`/docs/authoring-a-skill.md`); <https://readme.zeonsystems.app/llms.txt> is the machine index of every page. Fetch a page when the references don't cover something — the app UI, running a workflow, recovering a diverged project, accounts and API tokens — or when the platform looks like it has moved past this skill. `references/docs-index.md` maps topics to page URLs, so you don't have to fetch the index to find one.
 
 | Authoring | Reference |
 |---|---|
@@ -42,8 +43,9 @@ data/                            # per-run artifacts (captures/logs/api, keyed b
 | `live_state.yaml` (tip counters, calibration, indexing conventions) | `references/live-state.md` |
 | Canvas run UIs (`.tsx`) | `references/canvas.md` |
 | The full robot API with exact signatures | `references/execution-functions.json` |
+| Which hosted docs page covers what | `references/docs-index.md` |
 
-Read `execution-model.md` before wiring failure paths, conditionals, or loops — the executor's semantics are counter-intuitive (returning `{"success": False}` does NOT fail a node; raise instead).
+Read `execution-model.md` before wiring failure paths, conditionals, or loops — the executor's semantics are counter-intuitive (returning `{"success": False}` does NOT fail a node; raise instead). Each reference also links the hosted page covering the same topic.
 
 ## Tooling
 

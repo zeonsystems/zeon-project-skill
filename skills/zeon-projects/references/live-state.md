@@ -1,5 +1,7 @@
 # live_state.yaml — mutable per-world runtime state
 
+> Hosted docs: [Building a world](https://readme.zeonsystems.app/docs/building-a-world.md) · [The world state file](https://readme.zeonsystems.app/docs/worlds-world-state-json.md)
+
 `worlds/<world_id>/live_state.yaml` is the mutable sibling of the frozen
 `world_state.json`: consumable counters, calibration offsets, and other
 per-object runtime facts. Liquid-handling skills read and write it constantly,

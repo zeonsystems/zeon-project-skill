@@ -1,5 +1,7 @@
 # Workflows — workflows/<workflow_id>.json
 
+> Hosted docs: [Authoring a workflow](https://readme.zeonsystems.app/docs/authoring-a-workflow.md) · [The workflow file](https://readme.zeonsystems.app/docs/workflows-json.md)
+
 A workflow is a directed graph of skills, one strict-JSON file per workflow. It binds *roles*, not hardware: inputs are declared abstractly and mapped to world objects at run time, which is what lets one graph run on different benches.
 
 ## Required shape

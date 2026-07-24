@@ -1,5 +1,7 @@
 # How the executor actually runs a workflow
 
+> Hosted docs: [Authoring a workflow](https://readme.zeonsystems.app/docs/authoring-a-workflow.md) · [The workflow file](https://readme.zeonsystems.app/docs/workflows-json.md) — this file goes further than either.
+
 The runtime semantics below are not guessable from the file formats, and several
 are counter-intuitive. They determine whether the code you author does what the
 user thinks it does. (Verified against the platform's graph executor.)

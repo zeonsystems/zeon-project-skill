@@ -4,6 +4,8 @@ A Claude Code plugin for building things inside [Zeon](https://zeonsystems.app) 
 
 The skill is deliberately free-form: it gives the agent an accurate mental model of the platform, verified references (including the executor's actual runtime semantics), and deterministic tooling — then gets out of the way. No wizards, no fixed flows; describe what you want built and the agent builds it.
 
+It also bridges to the hosted docs at **<https://readme.zeonsystems.app>**: `SKILL.md` ranks them as ground truth #4 (behind the project, the CLI, and the bundled references), every reference links the page covering the same topic, and `references/docs-index.md` maps topics to page URLs — including the things this skill deliberately doesn't bundle (the app UI, running workflows, sync recovery, accounts). Pages serve clean markdown by appending `.md`, and `/llms.txt` is the machine index.
+
 ## What's inside
 
 ```
@@ -17,7 +19,8 @@ skills/zeon-projects/
 │   ├── patterns.md               # motion idioms: anchors, snapping, shared_state, retries, sim honesty
 │   ├── worlds-and-objects.md     # world_state.json, URDF + object model, anchor conventions
 │   ├── canvas.md                 # sandboxed React run UIs, the full zeon host global
-│   └── execution-functions.json  # vendored platform API manifest (58 names, exact signatures)
+│   ├── docs-index.md             # map of the hosted docs: topic → page URL, offline vs. online-only
+│   └── execution-functions.json  # vendored platform API manifest (55 names, exact signatures)
 └── scripts/
     ├── inspect.py                # whole-project map in one command
     ├── validate.py               # deterministic validator (mirrors runtime contracts)

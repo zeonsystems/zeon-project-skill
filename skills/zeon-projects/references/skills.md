@@ -1,5 +1,7 @@
 # Skills — robotic_code.py, metadata.yaml, execution functions
 
+> Hosted docs: [Authoring a skill](https://readme.zeonsystems.app/docs/authoring-a-skill.md) · [Skill runtime API](https://readme.zeonsystems.app/docs/skill-runtime-api.md) · [The skill metadata file](https://readme.zeonsystems.app/docs/skills-metadata-yaml.md)
+
 A skill is one robot action: a Python function in `skills/<skill_id>/robotic_code.py`.
 
 ## The one rule that matters most

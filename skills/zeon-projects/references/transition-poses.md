@@ -1,5 +1,7 @@
 # Transition poses — safe waypoints for relocating an arm
 
+> Hosted docs: [Arm motion and the gripper](https://readme.zeonsystems.app/docs/arm-motion-and-the-gripper.md) · [Skill authoring patterns](https://readme.zeonsystems.app/docs/skill-authoring-patterns.md)
+
 Transition poses are a fixed set of named joint configurations for each arm,
 used as **safe intermediate waypoints** when moving between tasks or
 instruments — never as grasp targets themselves. To relocate an arm, send it

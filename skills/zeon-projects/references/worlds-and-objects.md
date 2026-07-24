@@ -1,5 +1,7 @@
 # Worlds and objects
 
+> Hosted docs: [Worlds and objects](https://readme.zeonsystems.app/docs/worlds-and-objects.md) · [The world state file](https://readme.zeonsystems.app/docs/worlds-world-state-json.md) · [The object model file](https://readme.zeonsystems.app/docs/objects-object-model-yaml.md) · [Anchors](https://readme.zeonsystems.app/docs/anchors.md)
+
 **Objects** are physical things (plates, instruments, fixtures) defined once per type. **Worlds** are saved scenes placing *instances* of those objects at poses. Skills target objects through named **anchors**, never raw coordinates — that's what makes skills reusable across worlds.
 
 ## Worlds — worlds/<world_id>/world_state.json

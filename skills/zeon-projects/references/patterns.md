@@ -1,5 +1,7 @@
 # Motion-skill patterns — how good Zeon skills are written
 
+> Hosted docs: [Skill authoring patterns](https://readme.zeonsystems.app/docs/skill-authoring-patterns.md) · [Arm motion and the gripper](https://readme.zeonsystems.app/docs/arm-motion-and-the-gripper.md) · [How anchor snapping works](https://readme.zeonsystems.app/docs/anchor-snapping.md)
+
 Idioms distilled from the platform's own projects. These are what separate a
 skill that survives on hardware from one that only looks right.
 

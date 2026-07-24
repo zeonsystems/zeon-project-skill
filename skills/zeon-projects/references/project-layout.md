@@ -1,5 +1,7 @@
 # Project layout, manifest, naming, and the dev loop
 
+> Hosted docs: [Key concepts](https://readme.zeonsystems.app/docs/key-concepts.md) · [The project manifest](https://readme.zeonsystems.app/docs/project-json.md) · [The development loop](https://readme.zeonsystems.app/docs/the-development-loop.md) · [CLI reference](https://readme.zeonsystems.app/docs/cli-reference.md) · [Syncing your work](https://readme.zeonsystems.app/docs/syncing-your-work.md)
+
 ## Anatomy
 
 ```
@@ -26,7 +28,7 @@ data/                            # run artifacts, keyed per run by execution_id:
 └── runs/                        #   reserved, local-only — never synced, never authored
 ```
 
-A fresh `zeon new project` seeds a runnable **pipette demo** (workflow `pipette_demo`, world `pipette_demo_world`, six skills — `epipette_grey_pick`/`_attach`/`_aspirate`/`_eject`, `epipette_tip_check`, `laser_read` — 17 objects, one canvas). Those files are reference material — copy their patterns into new files; don't overwrite them unless the user asks.
+A fresh `zeon new project` seeds a runnable **pipette demo** (workflow `pipette_demo`, world `pipette_demo_world`, six left-arm skills — `epipette_grab`/`_attach`/`_aspirate`/`_dispense`/`_eject`/`_place` — plus `skills/utils.py`, a deck of objects, one canvas, and a `CLAUDE.md` describing that deck). Those files are reference material — copy their patterns into new files; don't overwrite them unless the user asks.
 
 ## project.json
 
