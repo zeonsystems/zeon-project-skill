@@ -1,0 +1,58 @@
+urdf: bad_object.urdf
+
+articulations:
+  default:
+    description: "Empty default articulation"
+    joints: {}
+
+anchors:
+  object:
+    parent_link: base
+    description: "Object reference frame"
+    link_T_anchor:
+      xyz: [0.0, 0.0, 0.0]
+      wxyz: [1.0, 0.0, 0.0, 0.0]
+  # inline fiducial AND a tag_collections/ folder -> the loader refuses the object
+  tag_7:
+    parent_link: body
+    description: "Legacy inline tag"
+    link_T_tag:
+      xyz: [0.0, 0.0, 0.0]
+      wxyz: [1.0, 0.0, 0.0, 0.0]
+    link_T_anchor:
+      xyz: [0.0, 0.0, 0.0]
+      wxyz: [1.0, 0.0, 0.0, 0.0]
+
+motions:
+  ghost_link_motion:            # parent_link is not a URDF link
+    parent_link: nonexistent_link
+    description: Attached to a link that does not exist
+    keyposes:
+      - t: 0.0
+        link_T_tcp: {xyz: [0.0, 0.0, 0.1], wxyz: [1.0, 0.0, 0.0, 0.0]}
+      - t: 0.5
+        link_T_tcp: {xyz: [0.0, 0.0, 0.2], wxyz: [1.0, 0.0, 0.0, 0.0]}
+  single_pose:                  # one keypose -> that is an anchor, not a motion
+    parent_link: body
+    description: Only one keypose
+    keyposes:
+      - t: 0.0
+        link_T_tcp: {xyz: [0.0, 0.0, 0.1], wxyz: [1.0, 0.0, 0.0, 0.0]}
+  time_travel:                  # t decreases, and a negative gripper
+    parent_link: body
+    description: Times run backwards
+    keyposes:
+      - t: 0.0
+        link_T_tcp: {xyz: [0.0, 0.0, 0.1], wxyz: [1.0, 0.0, 0.0, 0.0]}
+      - t: 0.9
+        link_T_tcp: {xyz: [0.0, 0.0, 0.2], wxyz: [1.0, 0.0, 0.0, 0.0]}
+      - t: 0.4
+        link_T_tcp: {xyz: [0.0, 0.0, 0.3], wxyz: [1.0, 0.0, 0.0, 0.0]}
+        gripper: -0.01
+  no_description:               # warning only
+    parent_link: body
+    keyposes:
+      - t: 0.0
+        link_T_tcp: {xyz: [0.0, 0.0, 0.1], wxyz: [1.0, 0.0, 0.0, 0.0]}
+      - t: 0.5
+        link_T_tcp: {xyz: [0.0, 0.0, 0.2], wxyz: [1.0, 0.0, 0.0, 0.0]}

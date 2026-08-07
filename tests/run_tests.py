@@ -57,6 +57,19 @@ EXPECTED_BROKEN = [
     # input presets
     "inputs/bad.json",                          # malformed preset (platform skips silently)
     "matches no declared workflow input",
+    # objects: motions
+    "parent_link 'nonexistent_link' is not a URDF link",
+    "needs at least two keyposes",
+    "goes backwards",
+    "gripper=-0.01 is negative",
+    "no description",                           # motion without a description (warning)
+    # objects: tag collections
+    "carries both inline tag anchors",          # inline tag_<id> + tag_collections/
+    "must be exactly 'tag_collection/v1'",
+    "'apriltag_36h11' is the only accepted value",
+    "size_m -0.02 must be a positive number",
+    "tag 3: link_T_tag needs xyz and wxyz",
+    "the loader ignores this file",             # non-conforming unit handle (warning)
     # project.json
     "active_workflow 'ghost_flow'",
 ]

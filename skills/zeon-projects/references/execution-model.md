@@ -1,6 +1,11 @@
 # How the executor actually runs a workflow
 
 > Hosted docs: [Authoring a workflow](https://readme.zeonsystems.app/docs/authoring-a-workflow.md) · [The workflow file](https://readme.zeonsystems.app/docs/workflows-json.md) — this file goes further than either.
+>
+> Note the one family that inverts the usual contract: the motion functions
+> (`list_object_motions` / `load_object_motion` / `play_object_motion`) **raise**
+> instead of returning a result dict, so an unguarded motion failure fails its
+> node by the rule below. See `references/motions.md`.
 
 The runtime semantics below are not guessable from the file formats, and several
 are counter-intuitive. They determine whether the code you author does what the

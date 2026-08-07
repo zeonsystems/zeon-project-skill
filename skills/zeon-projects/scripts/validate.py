@@ -44,6 +44,8 @@ INPUT_NAME_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_]*$")
 CANVAS_REF_RE = re.compile(r"^canvas/[a-z0-9_]+\.tsx$")
 CANVAS_STEM_RE = re.compile(r"^[a-z0-9_]+$")
 UUID_RE = re.compile(r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
+TAG_ANCHOR_RE = re.compile(r"^tag_\d+$")        # legacy inline fiducial, an anchor
+TAG_UNIT_RE = re.compile(r"^[a-z][a-z0-9_-]*$")  # tag_collections/<handle>.yaml
 
 VALID_NODE_TYPES = {"start", "end", "skill", "loop", "conditional"}
 VALID_EDGE_CONDITIONS = {
@@ -1216,7 +1218,122 @@ def validate_objects(root: Path, report: Report) -> int:
                     if norm2 < 1e-6:
                         report.err(str(model), f"anchor {aname!r}: wxyz is (near-)zero — "
                                                "placeholder quaternion, not a rotation")
+
+        _check_motions(model, data, link_names, report)
+        _check_tag_collections(obj_dir, name, anchors, link_names, report)
     return count
+
+
+def _check_motions(model: Path, data: dict, link_names: set[str], report: Report) -> None:
+    """Loader-fatal rules for the optional `motions:` block on an object model.
+
+    Motions are recorded by hand-guiding an arm, not authored, so these mostly
+    catch a hand-edit or a bad merge. Unlike anchors, a motion name may collide
+    with a URDF link: motions are not injected into the kinematic model.
+    """
+    motions = data.get("motions")
+    if motions is None:
+        return
+    if not isinstance(motions, dict):
+        report.err(str(model), "'motions' must be a mapping of name -> motion")
+        return
+    for mname, motion in motions.items():
+        if not isinstance(motion, dict):
+            report.err(str(model), f"motion {mname!r} is not a mapping")
+            continue
+        parent = motion.get("parent_link")
+        if not isinstance(parent, str):
+            report.err(str(model), f"motion {mname!r}: parent_link is required")
+        elif link_names and parent not in link_names:
+            report.err(str(model), f"motion {mname!r}: parent_link {parent!r} is not a "
+                                   f"URDF link (has: {', '.join(sorted(link_names))})")
+        if not isinstance(motion.get("description"), str):
+            report.warn(str(model), f"motion {mname!r}: no description — it is what tells "
+                                    "the next reader which direction the path goes in")
+        keyposes = motion.get("keyposes")
+        if not isinstance(keyposes, list) or len(keyposes) < 2:
+            report.err(str(model), f"motion {mname!r}: needs at least two keyposes "
+                                   "(a single pose is an anchor)")
+            continue
+        prev_t = None
+        for i, kp in enumerate(keyposes):
+            at = f"motion {mname!r} keypose {i}"
+            if not isinstance(kp, dict):
+                report.err(str(model), f"{at}: not a mapping")
+                continue
+            t = kp.get("t")
+            if not isinstance(t, (int, float)) or isinstance(t, bool):
+                report.err(str(model), f"{at}: 't' (seconds from start) is required")
+            else:
+                if t < 0:
+                    report.err(str(model), f"{at}: t={t} is negative")
+                if prev_t is not None and t < prev_t:
+                    report.err(str(model), f"{at}: t={t} goes backwards (previous {prev_t})")
+                prev_t = t
+            ltt = kp.get("link_T_tcp")
+            if not isinstance(ltt, dict) or "xyz" not in ltt or "wxyz" not in ltt:
+                report.err(str(model), f"{at}: link_T_tcp needs xyz and wxyz")
+            grip = kp.get("gripper")
+            if isinstance(grip, (int, float)) and not isinstance(grip, bool) and grip < 0:
+                report.err(str(model), f"{at}: gripper={grip} is negative")
+
+
+def _check_tag_collections(obj_dir: Path, name: str, anchors: dict,
+                           link_names: set[str], report: Report) -> None:
+    """Rules for the optional `tag_collections/` sidecar folder.
+
+    An object records its fiducial tags EITHER inline (anchors named `tag_<id>`)
+    or as per-unit collection files — never both. The platform refuses an object
+    carrying both rather than silently merging them.
+    """
+    tag_dir = obj_dir / "tag_collections"
+    if not tag_dir.is_dir():
+        return
+    inline = sorted(a for a in anchors if TAG_ANCHOR_RE.match(str(a)))
+    files = sorted(p for p in tag_dir.iterdir()
+                   if p.is_file() and p.suffix in {".yaml", ".yml"})
+    valid = [p for p in files if TAG_UNIT_RE.match(p.stem)]
+    for p in files:
+        if p not in valid:
+            report.warn(f"objects/{name}/tag_collections/{p.name}",
+                        f"handle {p.stem!r} is not [a-z][a-z0-9_-]* — the loader ignores "
+                        "this file")
+    if inline and valid:
+        report.err(f"objects/{name}", f"carries both inline tag anchors ({', '.join(inline)}) "
+                                      f"and tag_collections/ — the loader refuses this object "
+                                      "rather than merging; use one encoding or the other")
+    for path in valid:
+        doc = _load_yaml(path, report)
+        rel = f"objects/{name}/tag_collections/{path.name}"
+        if not isinstance(doc, dict):
+            continue
+        schema = doc.get("schema")
+        if schema is not None and schema != "tag_collection/v1":
+            report.err(rel, f"schema {schema!r} must be exactly 'tag_collection/v1'")
+        if doc.get("object") is None:
+            report.err(rel, "'object' (the object this belongs to) is required")
+        family = doc.get("family")
+        if family is not None and family != "apriltag_36h11":
+            report.err(rel, f"family {family!r} is rejected at load — 'apriltag_36h11' is the "
+                            "only accepted value")
+        size = doc.get("size_m")
+        if size is not None and (not isinstance(size, (int, float))
+                                 or isinstance(size, bool) or size <= 0):
+            report.err(rel, f"size_m {size!r} must be a positive number (metres)")
+        tags = doc.get("tags")
+        if not isinstance(tags, dict) or not tags:
+            report.err(rel, "'tags' is required and needs at least one entry")
+            continue
+        for tid, tag in tags.items():
+            if not isinstance(tag, dict):
+                report.err(rel, f"tag {tid!r} is not a mapping")
+                continue
+            parent = tag.get("parent_link")
+            if link_names and isinstance(parent, str) and parent not in link_names:
+                report.err(rel, f"tag {tid!r}: parent_link {parent!r} is not a URDF link")
+            ltt = tag.get("link_T_tag")
+            if not isinstance(ltt, dict) or "xyz" not in ltt or "wxyz" not in ltt:
+                report.err(rel, f"tag {tid!r}: link_T_tag needs xyz and wxyz")
 
 
 # ---------------------------------------------------------------------------

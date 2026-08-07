@@ -17,10 +17,11 @@ skills/zeon-projects/
 │   ├── workflows.md              # workflow JSON, validation rules, inputs, canvas_ui
 │   ├── execution-model.md        # how the executor REALLY behaves (failure routing, loops, binding)
 │   ├── patterns.md               # motion idioms: anchors, snapping, shared_state, retries, sim honesty
-│   ├── worlds-and-objects.md     # world_state.json, URDF + object model, anchor conventions
+│   ├── motions.md                # recorded tool paths: replay API, tuning, the motions: block
+│   ├── worlds-and-objects.md     # world_state.json, URDF + object model, tag collections, anchors
 │   ├── canvas.md                 # sandboxed React run UIs, the full zeon host global
 │   ├── docs-index.md             # map of the hosted docs: topic → page URL, offline vs. online-only
-│   └── execution-functions.json  # vendored platform API manifest (55 names, exact signatures)
+│   └── execution-functions.json  # vendored platform API manifest (58 names, exact signatures)
 └── scripts/
     ├── inspect.py                # whole-project map in one command
     ├── validate.py               # deterministic validator (mirrors runtime contracts)
@@ -39,6 +40,8 @@ Plus: `hooks/` (auto-validation hook config), `tests/` (fixture-based regression
 - imports and call sites vs. the vendored robot API manifest — unknown names, wrong kwargs, bad arity
 - literal `arm` arguments (anything but `left_arm`/`right_arm` silently moves the wrong physical arm)
 - anchors referenced in skill code vs. object models; anchor `parent_link` vs. URDF links
+- recorded `motions:` — `parent_link` in the URDF, at least two keyposes, non-decreasing keypose times, non-negative gripper widths
+- `tag_collections/` sidecars — the `tag_collection/v1` schema, the `apriltag_36h11`-only rule, positive `size_m`, and the object-refusing conflict between inline `tag_<id>` anchors and a collections folder
 - the executor's real expression grammar for conditional/loop nodes; collection-loop sources; identifier-safe loop ids; reserved state-key collisions
 - catalog-fatal `metadata.yaml` rules (a broken file silently drops the skill from the catalog)
 - `default`-edge-after-skill and `retry`-field traps; 16 MB blob cap; canvas sandbox rules

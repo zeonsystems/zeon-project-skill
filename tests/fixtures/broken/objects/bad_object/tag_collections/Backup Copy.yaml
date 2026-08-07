@@ -1,0 +1,5 @@
+object: bad_object
+tags:
+  9:
+    parent_link: body
+    link_T_tag: {xyz: [0.0, 0.0, 0.0], wxyz: [1.0, 0.0, 0.0, 0.0]}

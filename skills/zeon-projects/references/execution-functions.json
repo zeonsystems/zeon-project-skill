@@ -1,5 +1,5 @@
 {
-  "source": "execution.execution_functions, platform source dated 2026-07-24",
+  "source": "execution.execution_functions, platform source dated 2026-08-06",
   "note": "Curated skill-facing API (__all__). Regenerate with scripts/dev/gen_function_manifest.py.",
   "functions": {
     "SkillObject": {
@@ -89,6 +89,11 @@
         },
         {
           "name": "save_to_project",
+          "kind": "keyword_only",
+          "default": "False"
+        },
+        {
+          "name": "export",
           "kind": "keyword_only",
           "default": "False"
         },
@@ -521,6 +526,11 @@
           "name": "save_to_project",
           "kind": "positional",
           "default": "False"
+        },
+        {
+          "name": "export",
+          "kind": "positional",
+          "default": "False"
         }
       ],
       "doc": "Capture image from specified arm and save to readouts directory."
@@ -570,7 +580,12 @@
         {
           "name": "tag_edge_m",
           "kind": "keyword_only",
-          "default": "0.02"
+          "default": "None"
+        },
+        {
+          "name": "collection",
+          "kind": "keyword_only",
+          "default": "None"
         },
         {
           "name": "sigma_px",
@@ -659,6 +674,132 @@
         }
       ],
       "doc": "Get an anchor's world-frame pose for any object (static or articulated)."
+    },
+    "list_object_motions": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "object_name",
+          "kind": "positional",
+          "annotation": "str"
+        },
+        {
+          "name": "index",
+          "kind": "positional",
+          "annotation": "int | None",
+          "default": "None"
+        }
+      ],
+      "doc": "Names of the motions an object has, sorted."
+    },
+    "load_object_motion": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "object_name",
+          "kind": "positional",
+          "annotation": "str"
+        },
+        {
+          "name": "motion_name",
+          "kind": "positional",
+          "annotation": "str"
+        },
+        {
+          "name": "index",
+          "kind": "positional",
+          "annotation": "int | None",
+          "default": "None"
+        },
+        {
+          "name": "joint_config",
+          "kind": "positional",
+          "annotation": "dict | None",
+          "default": "None"
+        }
+      ],
+      "doc": "Get a stored motion's keyposes in world coordinates."
+    },
+    "play_object_motion": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "arm",
+          "kind": "positional",
+          "annotation": "str"
+        },
+        {
+          "name": "object_name",
+          "kind": "positional",
+          "annotation": "str"
+        },
+        {
+          "name": "motion_name",
+          "kind": "positional",
+          "annotation": "str"
+        },
+        {
+          "name": "speed",
+          "kind": "keyword_only",
+          "annotation": "float",
+          "default": "0.1"
+        },
+        {
+          "name": "accel",
+          "kind": "keyword_only",
+          "annotation": "float | None",
+          "default": "None"
+        },
+        {
+          "name": "max_total_accel",
+          "kind": "keyword_only",
+          "annotation": "float | None",
+          "default": "None"
+        },
+        {
+          "name": "time_scale",
+          "kind": "keyword_only",
+          "annotation": "float",
+          "default": "1.0"
+        },
+        {
+          "name": "index",
+          "kind": "keyword_only",
+          "annotation": "int | None",
+          "default": "None"
+        },
+        {
+          "name": "joint_config",
+          "kind": "keyword_only",
+          "annotation": "dict | None",
+          "default": "None"
+        },
+        {
+          "name": "blend_radius_mm",
+          "kind": "keyword_only",
+          "annotation": "float | None",
+          "default": "None"
+        },
+        {
+          "name": "apply_gripper",
+          "kind": "keyword_only",
+          "annotation": "bool",
+          "default": "True"
+        },
+        {
+          "name": "executor",
+          "kind": "keyword_only",
+          "annotation": "str | None",
+          "default": "None"
+        },
+        {
+          "name": "wait",
+          "kind": "keyword_only",
+          "annotation": "bool",
+          "default": "True"
+        }
+      ],
+      "doc": "Replay a stored motion, rebased onto the object's current pose."
     },
     "anchor_preapproach": {
       "kind": "function",

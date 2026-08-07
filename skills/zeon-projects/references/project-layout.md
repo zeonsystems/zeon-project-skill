@@ -18,7 +18,8 @@ worlds/<world_id>/
 └── live_state.yaml              # mutable per-object state (tip counters, calibration)
 objects/<name>/
 ├── <name>.urdf                  # kinematics/geometry references
-└── <name>.object_model.yaml     # anchors, parts, articulations
+├── <name>.object_model.yaml     # anchors, parts, articulations, motions
+└── tag_collections/<unit>.yaml  # optional: per-physical-copy fiducial tags
 canvas/<workflow_id>_screen.tsx  # optional custom run UI per workflow
 inputs/<preset>.json             # optional input presets surfaced to canvases (see references/canvas.md)
 data/                            # run artifacts, keyed per run by execution_id:
@@ -98,6 +99,7 @@ Other notes:
 - `zeon init` (link a hand-authored directory to a new cloud project) requires `skills/`, `workflows/`, and `worlds/` to exist, uses the **directory name** as the cloud project name, and refuses when `.zeon/` already exists or the name is taken. It commits and pushes everything present.
 - Platform-side creation paths sanitize names to `[a-z0-9_]` (spaces/hyphens → underscores) — use underscores everywhere and local names will round-trip identically.
 - Cloud blobs are capped at 16 MB (one oversized file breaks every future push of the project — validate.py checks); projects are text — binaries live in the mesh database.
-- **Run artifacts sync themselves**: when a run ends, the app pushes `data/captures|logs|api/` to the cloud (oversized files are skipped, not fatal; `data/runs/` is excluded). Capturing into the project is **opt-in per call** — pass `save_to_project=True` on `capture_image`/`print_log`/`api_request` when the run record should keep the artifact. Skills writing their own artifacts use `project_data_dir(...)` rather than hand-building paths.
+- **Run artifacts sync themselves — to the cloud, not to your disk.** When a run launched from the web app reaches a terminal state (completed, failed, or stopped), the app pushes `data/captures|logs|api/` to the cloud copy of the project; oversized files (>16 MB) are skipped with a warning rather than failing the push, and `data/runs/` is excluded. A push preserves earlier runs' output. To get that data onto the local machine, run `zeon sync` (or `zeon pull`) afterwards.
+- **Two destinations, both opt-in per call.** `save_to_project=True` on `capture_image`/`print_log`/`api_request` keeps the artifact with the project (`data/…/<execution_id>/`, comes down with `zeon sync`, works everywhere including the cloud). `export=True` uploads instead to a lab-owned S3 bucket configured per machine — local installs only; in the cloud it does nothing and logs one warning. They are independent; set either or both. Skills writing their own artifacts use `project_data_dir(...)` rather than hand-building paths (each path segment is sanitized, so anything outside `[A-Za-z0-9._-]` becomes `_`).
 - Auth is a `zat_…` token in `.env` (or `~/.zeon/.env`). It is a secret: never read, print, or commit it.
 - Workflows aren't run from the CLI: sim runs happen in the Zeon web app; hardware runs are started from the lab machine's local UI.

@@ -35,10 +35,12 @@ about the discrepancy.
 | Skills — code + metadata | `skills.md` | [Skills](https://readme.zeonsystems.app/docs/skills.md), [Authoring a skill](https://readme.zeonsystems.app/docs/authoring-a-skill.md), [The skill metadata file](https://readme.zeonsystems.app/docs/skills-metadata-yaml.md) |
 | The robot API | `execution-functions.json`, `skills.md` | [Skill runtime API](https://readme.zeonsystems.app/docs/skill-runtime-api.md) and its sub-pages: [arm + gripper](https://readme.zeonsystems.app/docs/arm-motion-and-the-gripper.md), [objects/anchors/world](https://readme.zeonsystems.app/docs/objects-anchors-and-the-world.md), [pipetting](https://readme.zeonsystems.app/docs/pipetting.md), [perception](https://readme.zeonsystems.app/docs/perception.md), [external APIs](https://readme.zeonsystems.app/docs/calling-an-external-api.md), [pausing/operator prompts](https://readme.zeonsystems.app/docs/pausing-and-operator-prompts.md), [state + logging](https://readme.zeonsystems.app/docs/skill-state-and-logging.md) |
 | Motion idioms, transition poses | `patterns.md`, `transition-poses.md` | [Skill authoring patterns](https://readme.zeonsystems.app/docs/skill-authoring-patterns.md), [Arm motion and the gripper](https://readme.zeonsystems.app/docs/arm-motion-and-the-gripper.md) |
+| Recorded motions (replay API, `motions:` block) | `motions.md` | [Motions](https://readme.zeonsystems.app/docs/motions.md), [Recording a motion](https://readme.zeonsystems.app/docs/recording-a-motion.md) |
 | Anchor snapping | `patterns.md` | [How anchor snapping works](https://readme.zeonsystems.app/docs/anchor-snapping.md) |
 | Workflow graphs | `workflows.md` | [Workflows](https://readme.zeonsystems.app/docs/workflows.md), [Authoring a workflow](https://readme.zeonsystems.app/docs/authoring-a-workflow.md), [The workflow file](https://readme.zeonsystems.app/docs/workflows-json.md) |
 | Executor semantics | `execution-model.md` | [Authoring a workflow](https://readme.zeonsystems.app/docs/authoring-a-workflow.md) — the reference goes deeper (verified against the executor) |
 | Worlds and objects | `worlds-and-objects.md` | [Worlds and objects](https://readme.zeonsystems.app/docs/worlds-and-objects.md), [The world state file](https://readme.zeonsystems.app/docs/worlds-world-state-json.md), [The object model file](https://readme.zeonsystems.app/docs/objects-object-model-yaml.md), [Anchors](https://readme.zeonsystems.app/docs/anchors.md) |
+| Tags, tagged units, localizing an object | `worlds-and-objects.md` | [Localizing an object](https://readme.zeonsystems.app/docs/localizing-an-object.md), [Perception](https://readme.zeonsystems.app/docs/perception.md) |
 | `live_state.yaml` | `live-state.md` | [Building a world](https://readme.zeonsystems.app/docs/building-a-world.md), [The world state file](https://readme.zeonsystems.app/docs/worlds-world-state-json.md) |
 | Canvas run UIs | `canvas.md` | [Creating a canvas](https://readme.zeonsystems.app/docs/creating-a-canvas.md) |
 
@@ -50,6 +52,7 @@ about the discrepancy.
 | Installing the CLI, signing in | [Install the CLI](https://readme.zeonsystems.app/docs/install-the-cli.md), [Signing in](https://readme.zeonsystems.app/docs/signing-in.md), [CLI cheat sheet](https://readme.zeonsystems.app/docs/cli-cheat-sheet.md) |
 | Running a workflow | [In the cloud sim](https://readme.zeonsystems.app/docs/running-a-workflow-in-the-cloud-sim.md), [On real hardware](https://readme.zeonsystems.app/docs/running-a-workflow-on-real-hardware.md) |
 | The app UI | [The main app](https://readme.zeonsystems.app/docs/the-main-app.md) → [Home](https://readme.zeonsystems.app/docs/the-home-screen.md), [Workflow Editor](https://readme.zeonsystems.app/docs/the-workflow-editor.md), [World Builder](https://readme.zeonsystems.app/docs/the-world-builder.md), [Skills Editor](https://readme.zeonsystems.app/docs/the-skills-editor.md), [Object Database](https://readme.zeonsystems.app/docs/the-object-database.md), [Hardware Setup](https://readme.zeonsystems.app/docs/hardware-setup.md) |
+| Sending run output to your own bucket | [Data export](https://readme.zeonsystems.app/docs/data-export.md) |
 | Sync went wrong / diverged | [How sync works](https://readme.zeonsystems.app/docs/how-sync-works.md), [zeon sync](https://readme.zeonsystems.app/docs/zeon-sync.md), [working-tree commands](https://readme.zeonsystems.app/docs/zeon-working-tree-commands.md), [Resolving a diverged project](https://readme.zeonsystems.app/docs/resolving-diverged-from-cloud.md) |
 | Where object geometry comes from | [The mesh database](https://readme.zeonsystems.app/docs/the-mesh-database.md), [Adding an object](https://readme.zeonsystems.app/docs/adding-an-object.md), [zeon mesh-database](https://readme.zeonsystems.app/docs/zeon-mesh-database.md) |
 | Editing in the browser | [The Web IDE](https://readme.zeonsystems.app/docs/the-web-ide.md) |
@@ -60,5 +63,5 @@ yourself; ask them to run `zeon auth login`.
 
 ---
 
-*This map covers all 57 published pages, verified 2026-07-24. `llms.txt` is
-authoritative for what is live right now.*
+*This map covers all 61 published pages as of the v1.1 "autoworld" release,
+verified 2026-08-06. `llms.txt` is authoritative for what is live right now.*

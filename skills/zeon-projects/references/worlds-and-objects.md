@@ -61,7 +61,7 @@ Both `"2.0"` and `"3.0"` schema versions exist in circulation; match whatever th
 Two files, both named after the folder:
 
 - `<name>.urdf` — XML kinematics/geometry. Root element `<robot name="<name>">`.
-- `<name>.object_model.yaml` — anchors, parts, articulations:
+- `<name>.object_model.yaml` — anchors, parts, articulations, motions:
 
 ```yaml
 urdf: <name>.urdf
@@ -82,7 +82,26 @@ anchors:
       wxyz: [1.0, 0.0, 0.0, 0.0]
 ```
 
-Hard requirements: the `urdf` key, `articulations.default` (even with empty joints), and an anchor literally named `object`.
+Hard requirements: the `urdf` key, `articulations.default` (even with empty joints), and an anchor literally named `object`. `parts` and `motions` are optional.
+
+An optional top-level **`motions:`** map holds recorded tool paths — the sequence counterpart to an anchor, attached to a `parent_link` the same way. Never hand-write one; they are recorded by hand-guiding a real arm. Format and replay API: `references/motions.md`. Loader-fatal: a `parent_link` not in the URDF, fewer than two keyposes, keypose times that decrease or start below zero, a negative `gripper`.
+
+### Tag collections — `objects/<name>/tag_collections/*.yaml`
+
+Some objects carry a sidecar folder recording the fiducial tags stuck to **one physical copy**. The shared object model carries everything true of the *type*; each **tagged unit** adds only its own tags, so a lab can own three of something without three near-identical models. The unit's handle is the filename without extension (lowercase, leading letter, `[a-z0-9_-]`); a file whose name doesn't fit is ignored.
+
+```yaml
+schema: tag_collection/v1      # optional; if present must be exactly this
+object: wellplate_holder       # required
+family: apriltag_36h11         # optional; the ONLY accepted value
+size_m: 0.020                  # optional, metres, positive (20 mm default)
+tags:                          # required, at least one
+  14:
+    parent_link: body
+    link_T_tag: { xyz: [0.031, 0.0, 0.048], wxyz: [0.5, -0.5, 0.5, 0.5] }
+```
+
+The collection is merged in at load time and never written back into the shared model. **An object uses one encoding or the other, never both** — older objects record tags inline as anchors named `tag_<id>`, and an object carrying both an inline `tag_<id>` anchor and a `tag_collections/` folder is *refused*, not merged. There is no tool for authoring a collection; one ships with an object or doesn't exist. Skills select a unit with `localize_object_tags(..., collection="<handle>")`.
 
 **Get real objects from the mesh database, don't hand-author them**: `zeon new object <name>` (or adding the object in the World Builder) materializes the real URDF and object model into `objects/<name>/`. Use `zeon mesh-database list/show` to discover what's in the catalog; `download` mirrors an item's full manifest (including meshes) to a separate directory for inspection — don't point it at the project.
 

@@ -118,9 +118,13 @@ collides with a lid it believes is closed. Exact signatures: the manifest,
 ## shared_state: cross-skill handoff for pick/place pairs
 
 `from execution.skill_editing import shared_state` is a mutable namespace
-that is **not cleared between runs** (unlike `set_skill_variable` storage,
-which resets at each execution start). Overwrite stashes at the start of the
-producing skill and treat a guard hit as possibly stale from a previous run.
+that is **not cleared between runs**. `set_skill_variable` storage is only
+a little safer: it is cleared when a **workflow run or a CLI run starts, and
+at no other time** — nothing clears it when a run *ends*, and a Sim run from
+the Skills Editor doesn't clear it at all, so it begins with whatever the
+previous run left behind. Treat both as potentially stale: overwrite stashes
+at the start of the producing skill and treat a guard hit as possibly left
+over from a previous run.
 Conventions:
 
 - Prefix attributes with the producing skill: `epipette_grab_home_pose`,
