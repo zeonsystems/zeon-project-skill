@@ -1,0 +1,5 @@
+skill_id: bad_skill
+version: "1.0.0"
+parameters:
+  - name: BadName
+    type: mystery

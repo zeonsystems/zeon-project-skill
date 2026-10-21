@@ -1,0 +1,9 @@
+schema: tag_collection/v2
+object: bad_object
+family: apriltag_25h9
+size_m: -0.02
+tags:
+  3:
+    parent_link: not_a_link
+    link_T_tag:
+      xyz: [0.0, 0.0, 0.0]

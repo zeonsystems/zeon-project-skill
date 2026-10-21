@@ -1,0 +1,9 @@
+{
+  "name": "valid-min fixture",
+  "description": "Minimal valid project for validator regression tests",
+  "created_at": "2026-06-20T00:00:00.000Z",
+  "updated_at": "2026-06-20T00:00:00.000Z",
+  "archived": false,
+  "active_workflow": "demo_flow",
+  "active_world": null
+}

@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<robot name="plate_reader">
+  <link name="base"/>
+  <link name="body"/>
+  <joint name="body_fixed" type="fixed">
+    <parent link="base"/>
+    <child link="body"/>
+  </joint>
+</robot>

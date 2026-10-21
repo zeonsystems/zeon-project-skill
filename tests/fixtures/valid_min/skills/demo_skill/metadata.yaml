@@ -1,0 +1,4 @@
+skill_id: demo_skill
+version: "1.0.0"
+description: "Move the left arm to a fixed test pose"
+tags: []

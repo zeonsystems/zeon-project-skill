@@ -1,0 +1,26 @@
+{
+  "workflow_id": "demo_flow",
+  "name": "Demo flow",
+  "description": "",
+  "version": "1.0.0",
+  "author": "",
+  "created_at": "2026-06-20T00:00:00.000Z",
+  "updated_at": "2026-06-20T00:00:00.000Z",
+  "simulation_validated": false,
+  "objects": [],
+  "inputs": [
+    { "name": "x", "type": "float", "description": "Target X", "defaultValue": 0.1 }
+  ],
+  "nodes": [
+    { "node_id": "start_0", "type": "start", "label": "Start" },
+    { "node_id": "move", "type": "skill", "label": "Move",
+      "skill_id": "demo_skill", "parameters": { "target_x": { "$input": "x" } } },
+    { "node_id": "end_0", "type": "end", "label": "End" }
+  ],
+  "edges": [
+    { "edge_id": "e0", "from_node": "start_0", "to_node": "move",
+      "condition": { "type": "default" } },
+    { "edge_id": "e1", "from_node": "move", "to_node": "end_0",
+      "condition": { "type": "on_success" } }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "zeon",
+  "owner": {
+    "name": "Zeon Systems"
+  },
+  "metadata": {
+    "description": "Marketplace for zeon-project-skill. Install with `/plugin marketplace add zeonsystems/zeon-project-skill` then `/plugin install zeon-project-skill@zeon`.",
+    "version": "0.2.0"
+  },
+  "plugins": [
+    {
+      "name": "zeon-project-skill",
+      "description": "Build anything inside a Zeon robotics/lab-automation project — skills, workflows, worlds, objects, canvas UIs — with accurate format references, the zeon CLI, and a deterministic validator.",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/zeon-projects"
+      ]
+    }
+  ]
+}

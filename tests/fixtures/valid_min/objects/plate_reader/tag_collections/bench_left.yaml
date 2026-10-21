@@ -1,0 +1,12 @@
+schema: tag_collection/v1
+object: plate_reader
+family: apriltag_36h11
+size_m: 0.020
+description: Reader on the left bench
+tags:
+  14:
+    parent_link: body
+    description: Front face, upper left
+    link_T_tag:
+      xyz: [0.031, 0.0, 0.048]
+      wxyz: [0.5, -0.5, 0.5, 0.5]
