@@ -79,7 +79,8 @@ def _excluded_prefixes() -> tuple[str, ...]:
 def _clean(text: str) -> str:
     """Docstring markup to plain text: ``x`` -> `x`, :func:`~.mod.name` -> `name`."""
     text = re.sub(r":[a-z]+:`~?\.?([\w.]+)`", lambda m: "`" + m.group(1).split(".")[-1] + "`", text)
-    return text.replace("``", "`")
+    text = text.replace("``", "`")
+    return re.sub(r"\bBas's\b", "the planner's", text)  # internal names stay out of customer docs
 
 
 def _first_line(doc: str | None) -> str:

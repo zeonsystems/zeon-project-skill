@@ -491,7 +491,7 @@
     },
     "Step": {
       "kind": "class",
-      "doc": "One waypoint of `move_path` (Bas's `Waypoint` with move_arm's flags). `scene`: the objects' joints",
+      "doc": "One waypoint of `move_path` (the planner's `Waypoint` with move_arm's flags). `scene`: the objects' joints",
       "fields": [
         "target",
         "straight_line",
@@ -834,7 +834,7 @@
           "default": "True"
         }
       ],
-      "doc": "Steps as ONE goal (Bas's `Stack.set_path` for one arm, the other held), each waypoint resolved by the Stack"
+      "doc": "Steps as ONE goal (the planner's `Stack.set_path` for one arm, the other held), each waypoint resolved by the Stack"
     },
     "sweep_anchor_steps": {
       "kind": "function",
