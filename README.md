@@ -13,7 +13,7 @@ skills/zeon-projects/
 ├── SKILL.md                      # orientation: anatomy, ground truth, tooling, safety
 ├── references/
 │   ├── project-layout.md         # anatomy, project.json, naming, dev loop, CLI (+ --json surface)
-│   ├── skills.md                 # robotic_code.py, metadata.yaml, the robot API
+│   ├── skills.md                 # robotic_code.py, metadata.yaml, the skill API v2, porting from v1
 │   ├── workflows.md              # workflow JSON, validation rules, inputs, canvas_ui
 │   ├── execution-model.md        # how the executor REALLY behaves (failure routing, loops, binding)
 │   ├── patterns.md               # motion idioms: anchors, snapping, shared_state, retries, sim honesty
@@ -21,13 +21,14 @@ skills/zeon-projects/
 │   ├── worlds-and-objects.md     # world_state.json, URDF + object model, tag collections, anchors
 │   ├── canvas.md                 # sandboxed React run UIs, the full zeon host global
 │   ├── docs-index.md             # map of the hosted docs: topic → page URL, offline vs. online-only
-│   └── execution-functions.json  # vendored platform API manifest (58 names, exact signatures)
+│   ├── skill-api.json            # vendored skill API v2 manifest (exact signatures, first doc lines)
+│   └── execution-functions.json  # legacy v1 manifest (retired verbs marked), for old projects
 └── scripts/
     ├── inspect.py                # whole-project map in one command
     ├── validate.py               # deterministic validator (mirrors runtime contracts)
     ├── cloud_delta.py            # read-only "has the cloud moved?" preflight
     ├── mesh_object_info.py       # read an object's real anchors from the mesh database
-    └── dev/gen_function_manifest.py   # regenerate the API manifest from a platform checkout
+    └── dev/gen_function_manifest.py   # regenerate the API manifests from a platform checkout
 ```
 
 Plus: `hooks/` (auto-validation hook config), `tests/` (fixture-based regression suite, run in CI), `evals/` (golden acceptance tasks for the skill itself).
@@ -37,8 +38,8 @@ Plus: `hooks/` (auto-validation hook config), `tests/` (fixture-based regression
 `scripts/validate.py` checks any project directory offline (stdlib-only; PyYAML optional). Beyond parse/naming/cross-reference checks, it mirrors the platform's **runtime** contracts, so failures that would otherwise surface mid-run on a physical robot become local errors:
 
 - workflow node parameters vs. the skill function's actual signature (missing required parameter aborts a run; a typo'd key is silently dropped)
-- imports and call sites vs. the vendored robot API manifest — unknown names, wrong kwargs, bad arity
-- literal `arm` arguments (anything but `left_arm`/`right_arm` silently moves the wrong physical arm)
+- imports and call sites vs. the vendored skill API manifest (v2 `execution.skill_api`; legacy v1 accepted with a warning) — unknown names, wrong kwargs, bad arity, deprecated names, by-name-only imports, calls to retired v1 motion verbs (they raise)
+- literal `arm` arguments (v2: `left`/`right`; v1: anything but `left_arm`/`right_arm` silently moves the wrong physical arm)
 - anchors referenced in skill code vs. object models; anchor `parent_link` vs. URDF links
 - recorded `motions:` — `parent_link` in the URDF, at least two keyposes, non-decreasing keypose times, non-negative gripper widths
 - `tag_collections/` sidecars — the `tag_collection/v1` schema, the `apriltag_36h11`-only rule, positive `size_m`, and the object-refusing conflict between inline `tag_<id>` anchors and a collections folder
@@ -73,8 +74,8 @@ Exit 0 with no errors, 1 otherwise; `--json` for machine-readable output.
 
 ## Keeping it true as the platform evolves
 
-- `references/execution-functions.json` records the platform commit it was generated from. Regenerate with `python3 skills/zeon-projects/scripts/dev/gen_function_manifest.py <platform-checkout> --write`, diff, and commit.
-- `tests/run_tests.py` (CI) validates a known-good fixture (zero errors) and a deliberately broken one (every planted defect must be reported).
+- `references/skill-api.json` (v2) and `references/execution-functions.json` (legacy v1) record the date of the platform checkout they were generated from. Regenerate with `<platform venv python> skills/zeon-projects/scripts/dev/gen_function_manifest.py <platform-checkout> --write` (add `--api v1` for the legacy one); without the platform's environment it falls back to reading the sources statically (`--static`). Diff and commit.
+- `tests/run_tests.py` (CI) validates the known-good fixtures (`valid_v2`: zero errors and warnings; `valid_min`: a legacy v1 project, zero errors) and a deliberately broken one (every planted defect must be reported).
 - `evals/README.md` defines golden acceptance tasks for the skill; `evals/check.py` runs the deterministic parts.
 
 ## Install
@@ -90,8 +91,10 @@ Restart Claude Code; the `zeon-projects` skill becomes discoverable. Then, in an
 - "Add a skill that ejects the pipette tip into the waste bin."
 - "Run tap_plate once per plate in a list the operator provides."
 - "Why does my workflow fail validation?"
+- "The workflow fails in sim — find out why and fix it." (with a cloud instance: the agent runs it with `zeon run`, reads `zeon logs`, fixes, and re-runs)
 
 ## Notes
 
 - The agent never handles credentials: `zeon auth login` is run by you, and the skill treats the token in `.env` as off-limits (the bundled cloud tools keep it in memory and never print it).
 - Skill code moves real robot arms. The skill reads grip geometry from anchors, flags anything that claims to disable safety behavior, treats clean sim runs as non-evidence of physical safety, and leaves hardware runs to you in the Zeon app.
+- With a cloud instance, the agent verifies its work in the cloud simulator through the `zeon` CLI (`zeon py / run / wait / logs / snap`) and narrates into the 3D viewer (`zeon say / look / open`) so you can follow along. It works through the skill API only; REPL sessions are logged, and code that reaches past the skill API is refused with a hint the agent follows.

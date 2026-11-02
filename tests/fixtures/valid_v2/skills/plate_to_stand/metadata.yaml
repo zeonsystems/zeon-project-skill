@@ -1,0 +1,9 @@
+# skill API v2 (execution.skill_api)
+skill_id: plate_to_stand
+version: "1.0.0"
+description: "Move a plate from where it sits onto the plate stand"
+
+# parameters are derived from the plate_to_stand() signature in robotic_code.py
+
+tags:
+  - labware

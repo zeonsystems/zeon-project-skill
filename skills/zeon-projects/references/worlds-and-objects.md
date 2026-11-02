@@ -55,6 +55,18 @@ Both `"2.0"` and `"3.0"` schema versions exist in circulation; match whatever th
 - Some entries are synthetic primitives (workspace boundaries `x_min`…`z_max`, `table`, depth filters) — identified by a primitive `geometry.type` like `Cuboid` and empty `metadata`. Leave them alone. Real object instances have `geometry.type: "articulated"` with a `yaml_path`.
 - Fields are read by direct key access at load time — a missing key is a `KeyError`, not a default. Don't drop keys from an entry you're editing, and don't invent values for `attachment_spec` — copy from an existing instance of the same type.
 
+**The world-file format.** Newer projects save a world as two files: a
+`world_state.json` manifest (`"format": "zeon_world_state/2"`, `"world":
+"world.world"`, `"cell": "<setup>"`, and `objects` keyed by instance id with
+`type`, `name`, `parent`, `seat`, `tag_collection`) next to the world file it
+names (`world.world`, plus `world.world.engine.json`), which holds the scene
+tree and every pose. The world file is written by the platform — never
+hand-edit it. Change such a world through the World Builder; the skill API's
+bookings (`set_object_pose`, `seat`, `spawn`, `despawn`) change the loaded
+world in memory during a run, not the saved files. Read the live world with
+`zeon brief` / `zeon py 'list_objects()'`. Match whatever
+format the project already uses.
+
 `worlds/<world_id>/live_state.yaml` — mutable per-object runtime state (tip-box counters, well calibration, pipette offsets). The platform reads *and writes* it; its schema, 1-based/well-label indexing conventions, and merge semantics are precise and unforgiving — read `references/live-state.md` before touching it or writing skills that use `get_world_state`/`set_world_state`.
 
 ## Objects — objects/<name>/
@@ -89,13 +101,13 @@ Hard requirements: the `urdf` key, `articulations.default` (even with empty join
 
 The `object` anchor **is** the object's frame. At load the platform re-roots the URDF so that frame becomes the object's origin. Keep it on the root link (the annotation editor requires this): the re-rooting is evaluated once at the `default` articulation, so an `object` anchor on a moving link would not follow it. Everything below is expressed in it:
 
-- **Placement.** Absent a workflow-input offset, an instance's `world_P_body_fixed` in `world_state.json`, `get_object_pose(...)`, the rotation and `origin_*` fields of `SkillObject.pose`, `snap_object_to_world_pose(...)`, and the pose a localization solve writes are all the world pose of the `object` anchor.
-- **Anchors.** `load_object_anchor` returns `world_P_object ∘ object_T_anchor`. An anchor is *stored* as `link_T_anchor` on its `parent_link`, but its offset from the object is measured from the `object` anchor, not from that link's origin.
+- **Placement.** Absent a workflow-input offset, an instance's `world_P_body_fixed` in `world_state.json`, `get_object_pose(...)`, the rotation and `origin_*` fields of `SkillObject.pose`, `set_object_pose(...)`, and the pose a localization solve writes are all the world pose of the `object` anchor.
+- **Anchors.** `anchor(obj, name).pose` is `world_P_object ∘ object_T_anchor`. An anchor is *stored* as `link_T_anchor` on its `parent_link`, but its offset from the object is measured from the `object` anchor, not from that link's origin.
 
 The URDF/mesh origin is just where the CAD export happened to put zero. On real objects the `object` anchor is commonly centimetres to tens of centimetres away from it, and rotated (one plate reader's sits 0.56 m below its mesh origin, turned almost 180°; a PCR plate's is 0.128 m along x and turned −90° about z). So:
 
-- Never take an anchor's `link_T_anchor.xyz` as its offset from the object's pose. Call `load_object_anchor`, or compose with the `object` anchor's own transform.
-- To put an object somewhere, give the `object` anchor's target pose (or snap a named anchor with `snap_object_anchor_to_world_pose`). Don't place by the mesh's origin or bounding box.
+- Never take an anchor's `link_T_anchor.xyz` as its offset from the object's pose. Call `anchor(obj, name)`, or compose with the `object` anchor's own transform.
+- To put an object somewhere, give the `object` anchor's target pose (or place a named anchor with `set_object_pose(obj, pose, anchor="<name>")`). Don't place by the mesh's origin or bounding box.
 - Moving the `object` anchor moves where every existing placement of that object appears, because those stored poses are poses of that frame. Treat it as fixed once an object is in use.
 
 The scaffold placeholder puts `object` at identity on the root link, so for a hand-written placeholder the two frames coincide. Don't generalise that to real objects.
@@ -137,7 +149,7 @@ anchors:
       wxyz: [0.707, 0.0, 0.707, 0.0]
 ```
 
-Skills resolve them by name at runtime — `load_object_anchor("epipette_grey", "grasp_pose")` returns the pose against the object's live position. Adding a well-placed anchor to an object is usually the right way to make a skill work with it; hardcoding coordinates in skill code is usually the wrong way. An anchor may also carry a `grasp` block (`width`, `standoff`, `gripper_variant`) — skills should read grip geometry from it (`references/patterns.md`).
+Skills resolve them by name at runtime — `anchor("epipette_grey", "grasp_pose")` returns the pose against the object's live position. Adding a well-placed anchor to an object is usually the right way to make a skill work with it; hardcoding coordinates in skill code is usually the wrong way. An anchor may also carry a `grasp` block (`width`, `standoff`, `gripper_variant`) — skills should read grip geometry from it (`references/patterns.md`).
 
 **Orientation conventions — nothing validates these at runtime, and a wrong +Z means the gripper approaches from the opposite side with no error message:**
 

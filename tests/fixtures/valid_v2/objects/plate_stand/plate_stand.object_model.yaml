@@ -1,0 +1,22 @@
+urdf: plate_stand.urdf
+
+parts: {}
+
+articulations:
+  default:
+    description: "Empty default articulation"
+    joints: {}
+
+anchors:
+  object:
+    parent_link: base
+    description: "Object reference frame"
+    link_T_anchor:
+      xyz: [0.0, 0.0, 0.0]
+      wxyz: [1.0, 0.0, 0.0, 0.0]
+  top_center:
+    parent_link: base
+    description: "Seat: a plate's bottom_center goes here"
+    link_T_anchor:
+      xyz: [0.0, 0.0, 0.05]
+      wxyz: [1.0, 0.0, 0.0, 0.0]

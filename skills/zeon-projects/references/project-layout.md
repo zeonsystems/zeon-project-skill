@@ -10,8 +10,8 @@ CLAUDE.md                        # per-project authoring notes — read first
 skills/<skill_id>/
 ├── robotic_code.py              # the skill implementation (required)
 ├── metadata.yaml                # id/version/description/tags (required)
-└── modules.py                   # optional shim: `from execution.execution_functions import *`
-skills/utils.py                  # optional shared constants/helpers (arm poses etc.)
+└── modules.py                   # the API import: `from execution.skill_api import *`
+skills/*.py                      # optional shared code (utils.py: constants, joint poses; helpers)
 workflows/<workflow_id>.json     # one graph per file
 worlds/<world_id>/
 ├── world_state.json             # the scene: object instances + poses
@@ -28,6 +28,13 @@ data/                            # run artifacts, keyed per run by execution_id:
 ├── api/<execution_id>/          #   saved api_request responses
 └── runs/                        #   reserved, local-only — never synced, never authored
 ```
+
+Each run also has an **execution folder** the platform keeps outside the
+project tree (per user, project and execution id): the run log
+(`run_log_<execution_id>.jsonl`), refusal records, the liquid-transfer ledger,
+whatever a skill writes through `execution_dir()`. It is runtime state, not
+authoring data — never synced with the project. Read it with
+`zeon logs <execution_id>`.
 
 A fresh `zeon new project` seeds a runnable **pipette demo** (workflow `pipette_demo`, world `pipette_demo_world`, six left-arm skills — `epipette_grab`/`_attach`/`_aspirate`/`_dispense`/`_eject`/`_place` — plus `skills/utils.py`, a deck of objects, one canvas, and a `CLAUDE.md` describing that deck). Those files are reference material — copy their patterns into new files; don't overwrite them unless the user asks.
 
@@ -77,7 +84,9 @@ zeon new skill|workflow|world|canvas <name>   # scaffold one item
 zeon new object <name>         # materialize an object from the mesh database
 zeon project list|show|rename|archive
 zeon mesh-database list|show|download        # browse the shared object catalog
-zeon auth status               # check login (user runs `zeon auth login` themselves)
+zeon auth status               # check login (user runs `zeon login` themselves)
+zeon brief                     # the live project: world, objects, skills, workflows, last runs
+zeon py / run / wait / logs / snap / say / look / open   # the cloud-sim loop (SKILL.md)
 zeon verify                    # not yet implemented — always exits 1 (server-side verification is planned)
 ```
 
@@ -102,4 +111,4 @@ Other notes:
 - **Run artifacts sync themselves — to the cloud, not to your disk.** When a run launched from the web app reaches a terminal state (completed, failed, or stopped), the app pushes `data/captures|logs|api/` to the cloud copy of the project; oversized files (>16 MB) are skipped with a warning rather than failing the push, and `data/runs/` is excluded. A push preserves earlier runs' output. To get that data onto the local machine, run `zeon sync` (or `zeon pull`) afterwards.
 - **Two destinations, both opt-in per call.** `save_to_project=True` on `capture_image`/`print_log`/`api_request` keeps the artifact with the project (`data/…/<execution_id>/`, comes down with `zeon sync`, works everywhere including the cloud). `export=True` uploads instead to a lab-owned S3 bucket configured per machine — local installs only; in the cloud it does nothing and logs one warning. They are independent; set either or both. Skills writing their own artifacts use `project_data_dir(...)` rather than hand-building paths (each path segment is sanitized, so anything outside `[A-Za-z0-9._-]` becomes `_`).
 - Auth is a `zat_…` token in `.env` (or `~/.zeon/.env`). It is a secret: never read, print, or commit it.
-- Workflows aren't run from the CLI: sim runs happen in the Zeon web app; hardware runs are started from the lab machine's local UI.
+- Sim runs: from the Zeon web app, or from the CLI with `zeon run <skill|workflow>` against the user's cloud instance (SKILL.md, "The cloud-sim loop"; `zeon sync` first so the instance has your edits). Hardware runs are started by the user from the lab machine's UI, never from the CLI.

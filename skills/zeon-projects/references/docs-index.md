@@ -22,7 +22,7 @@ hosted page when:
 
 The two sources shouldn't contradict each other. If they do, trust the project
 you are in first, then the `zeon` CLI, then check the hosted page's content
-against `references/execution-functions.json` before acting — and tell the user
+against `references/skill-api.json` before acting — and tell the user
 about the discrepancy.
 
 ## Covered offline — fetch only for more depth
@@ -33,7 +33,7 @@ about the discrepancy.
 | Project layout, `project.json` | `project-layout.md` | [The project manifest](https://readme.zeonsystems.app/docs/project-json.md), [File reference](https://readme.zeonsystems.app/docs/file-reference.md) |
 | Dev loop, CLI, sync | `project-layout.md` | [The development loop](https://readme.zeonsystems.app/docs/the-development-loop.md), [CLI reference](https://readme.zeonsystems.app/docs/cli-reference.md), [zeon new](https://readme.zeonsystems.app/docs/zeon-new.md), [zeon project](https://readme.zeonsystems.app/docs/zeon-project.md), [Syncing your work](https://readme.zeonsystems.app/docs/syncing-your-work.md) |
 | Skills — code + metadata | `skills.md` | [Skills](https://readme.zeonsystems.app/docs/skills.md), [Authoring a skill](https://readme.zeonsystems.app/docs/authoring-a-skill.md), [The skill metadata file](https://readme.zeonsystems.app/docs/skills-metadata-yaml.md) |
-| The robot API | `execution-functions.json`, `skills.md` | [Skill runtime API](https://readme.zeonsystems.app/docs/skill-runtime-api.md) and its sub-pages: [arm + gripper](https://readme.zeonsystems.app/docs/arm-motion-and-the-gripper.md), [objects/anchors/world](https://readme.zeonsystems.app/docs/objects-anchors-and-the-world.md), [pipetting](https://readme.zeonsystems.app/docs/pipetting.md), [perception](https://readme.zeonsystems.app/docs/perception.md), [external APIs](https://readme.zeonsystems.app/docs/calling-an-external-api.md), [pausing/operator prompts](https://readme.zeonsystems.app/docs/pausing-and-operator-prompts.md), [state + logging](https://readme.zeonsystems.app/docs/skill-state-and-logging.md) |
+| The robot API | `skill-api.json` (v2; `execution-functions.json` is legacy v1), `skills.md` | [Skill runtime API](https://readme.zeonsystems.app/docs/skill-runtime-api.md) and its sub-pages: [arm + gripper](https://readme.zeonsystems.app/docs/arm-motion-and-the-gripper.md), [objects/anchors/world](https://readme.zeonsystems.app/docs/objects-anchors-and-the-world.md), [pipetting](https://readme.zeonsystems.app/docs/pipetting.md), [perception](https://readme.zeonsystems.app/docs/perception.md), [external APIs](https://readme.zeonsystems.app/docs/calling-an-external-api.md), [pausing/operator prompts](https://readme.zeonsystems.app/docs/pausing-and-operator-prompts.md), [state + logging](https://readme.zeonsystems.app/docs/skill-state-and-logging.md) |
 | Motion idioms, transition poses | `patterns.md`, `transition-poses.md` | [Skill authoring patterns](https://readme.zeonsystems.app/docs/skill-authoring-patterns.md), [Arm motion and the gripper](https://readme.zeonsystems.app/docs/arm-motion-and-the-gripper.md) |
 | Recorded motions (replay API, `motions:` block) | `motions.md` | [Motions](https://readme.zeonsystems.app/docs/motions.md), [Recording a motion](https://readme.zeonsystems.app/docs/recording-a-motion.md) |
 | Anchor snapping | `patterns.md` | [How anchor snapping works](https://readme.zeonsystems.app/docs/anchor-snapping.md) |

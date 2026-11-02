@@ -1,0 +1,3 @@
+skill_id: bad_v2_skill
+version: "1.0.0"
+description: "Planted skill API v2 defects for the validator tests"

@@ -1,0 +1,10 @@
+{
+  "format": "zeon_world_state/2",
+  "world": "world.world",
+  "cell": "bench_single_arm",
+  "metadata": { "name": "cell", "description": "World-file format fixture: the manifest of the instances; poses live in world.world" },
+  "objects": {
+    "bench": { "type": "primitive", "name": "bench", "index": null, "tag_collection": null, "parent": "world", "seat": null },
+    "stand_2": { "type": "plate_stand", "name": "stand_2", "index": null, "tag_collection": null, "parent": "world", "seat": null }
+  }
+}

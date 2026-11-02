@@ -185,7 +185,7 @@ def inspect_worlds(root: Path) -> list[dict]:
         state = _try_json(d / "world_state.json")
         entry: dict = {"world_id": d.name, "instances": []}
         if isinstance(state, dict):
-            entry["version"] = state.get("version")
+            entry["version"] = state.get("version") or state.get("format")
             objs = state.get("objects")
             objs = objs if isinstance(objs, dict) else {}
             for key, obj in objs.items():
@@ -193,6 +193,13 @@ def inspect_worlds(root: Path) -> list[dict]:
                     continue
                 meta = obj.get("metadata")
                 meta = meta if isinstance(meta, dict) else {}
+                if not meta and isinstance(obj.get("type"), str):
+                    # world-file format: type / name / seat at the top of the entry; poses
+                    # live in the world file (read them live: zeon brief)
+                    if obj["type"] == "primitive":
+                        entry["instances"].append({"key": key, "primitive": obj.get("name") or key})
+                        continue
+                    meta = obj
                 geom = obj.get("geometry")
                 geom = geom if isinstance(geom, dict) else {}
                 inst = {"key": key}
@@ -314,7 +321,9 @@ def print_text(data: dict) -> None:
     print(f"\n## Worlds ({len(data['worlds'])})")
     for wd in data["worlds"]:
         n_real = sum(1 for i in wd["instances"] if "type" in i)
-        print(f"  {wd['world_id']}  (v{wd.get('version')}, {n_real} object instances"
+        ver = wd.get("version")
+        ver = ver if isinstance(ver, str) and "/" in ver else f"v{ver}"
+        print(f"  {wd['world_id']}  ({ver}, {n_real} object instances"
               + (", live_state.yaml" if wd.get("has_live_state") else "") + ")")
         for i in wd["instances"]:
             if "type" in i:

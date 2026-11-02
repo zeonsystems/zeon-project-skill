@@ -4,9 +4,11 @@
 Run from anywhere:  python3 tests/run_tests.py
 
 - compiles every bundled script
-- validates fixtures/valid_min → must be OK with zero errors
-- validates fixtures/broken   → every expected defect must be reported
-- sanity-checks the vendored execution-function manifest
+- sanity-checks the vendored skill API manifests (v2 skill-api.json, legacy v1
+  execution-functions.json)
+- validates fixtures/valid_v2  → zero errors AND zero warnings (skill API v2)
+- validates fixtures/valid_min → zero errors; warns on its legacy v1 import
+- validates fixtures/broken    → every expected defect must be reported
 """
 
 from __future__ import annotations
@@ -34,13 +36,21 @@ EXPECTED_BROKEN = [
     "imports 'imaginary_teleport'",             # unknown platform import
     "but bad_skill/modules.py does not exist",  # .modules import w/o shim
     "collides with an engine-reserved state key",  # param named skill_result
-    "arm must be exactly 'left_arm' or 'right_arm'",
+    "arm must be exactly 'left_arm' or 'right_arm'",   # v1 arm literal
+    "is a retired v1 verb",                     # v1 move_arm raises on the current platform
+    "imports the legacy skill API v1",          # v1 import (warning)
     "unknown keyword",                          # move_arm(..., turbo=True)
     "missing required argument(s)",             # move_arm(arm=...) only
     "safe=False",
     "invented_function_xyz",                    # NameError lint
     "never returns a dict with a 'success' key",
     "passes a display name",                    # live_state keyed by instance id
+    # skills: skill API v2 (bad_v2_skill)
+    "anchor 'no_such_anchor' not found",        # anchor(obj, name) vs the object model
+    "move_arm(..., position=",                  # v1 keyword on the v2 verb
+    "arm must be 'left' or 'right'",            # v2 arm literal
+    "place_object() is deprecated",             # deprecated v2 name (warning)
+    "'deg' is not star-exported",               # by-name-only v2 import used via star
     # workflows
     "!= filename stem",                         # workflow_id vs file
     "duplicate workflow_id",
@@ -101,18 +111,44 @@ def main() -> int:
     print(f"ok: {len(list((SKILL / 'scripts').rglob('*.py')))} scripts compile")
 
     # 2. Manifest sanity.
-    manifest = json.loads((SKILL / "references" / "execution-functions.json").read_text())
+    manifest = json.loads((SKILL / "references" / "skill-api.json").read_text())
     fns = manifest.get("functions", {})
-    for required in ("move_arm", "set_gripper", "load_object_anchor", "is_sim_mode",
-                     "pause_for_user", "update_object_joint_config"):
+    if manifest.get("api") != "v2":
+        fail("skill-api.json is not the v2 manifest")
+    for required in ("move_arm", "move_arm_js", "move_relative", "set_gripper", "anchor",
+                     "attach", "release", "contact", "Pose", "is_sim_mode", "pause_for_user",
+                     "SkillError", "WouldCollide"):
         if required not in fns:
-            fail(f"manifest missing {required!r}")
-    move_arm_params = {p["name"] for p in fns["move_arm"]["signature"]}
-    if "safe" in move_arm_params:
+            fail(f"v2 manifest missing {required!r}")
+    move_arm = fns["move_arm"]["signature"]
+    if [p["name"] for p in move_arm[:2]] != ["arm", "target"] or \
+            any(p["kind"] != "keyword_only" for p in move_arm[2:]):
+        fail("v2 move_arm is not (arm, target, *, ...) — regenerate and re-review")
+    if "safe" in {p["name"] for p in move_arm}:
         fail("manifest claims move_arm has a 'safe' parameter — regenerate and re-review")
-    print(f"ok: manifest has {len(fns)} functions ({manifest.get('source')})")
+    for gone in ("snap_object_to_world_pose", "play_object_motion", "get_arm_pose",
+                 "load_object_anchor"):
+        if gone in fns:
+            fail(f"v2 manifest lists {gone!r}, which v2 does not export")
+    if "deg" not in manifest.get("importable_by_name", {}):
+        fail("v2 manifest lacks importable_by_name (deg, mm, Tolerance, ...)")
+    print(f"ok: v2 manifest has {len(fns)} names ({manifest.get('source')})")
 
-    # 3. Valid fixture → zero errors.
+    legacy = json.loads((SKILL / "references" / "execution-functions.json").read_text())
+    lfns = legacy.get("functions", {})
+    if legacy.get("api") != "v1" or not lfns.get("move_arm", {}).get("retired"):
+        fail("execution-functions.json is not the v1 manifest with retired verbs marked")
+    print(f"ok: v1 manifest has {len(lfns)} names "
+          f"({sum(1 for v in lfns.values() if v.get('retired'))} retired)")
+
+    # 3a. Valid v2 fixture → zero errors, zero warnings.
+    result = run_validator(FIXTURES / "valid_v2")
+    if not result["ok"] or result["errors"] or result["warnings"]:
+        fail("valid_v2 fixture should have zero errors and zero warnings, got:\n"
+             + json.dumps(result["errors"] + result["warnings"], indent=2))
+    print("ok: valid_v2 passes (0 warnings)")
+
+    # 3b. Valid v1 (legacy) fixture → zero errors; the v1 import is a warning.
     result = run_validator(FIXTURES / "valid_min")
     if not result["ok"] or result["errors"]:
         fail("valid_min fixture should have zero errors, got:\n"
@@ -122,7 +158,9 @@ def main() -> int:
     if flagged:
         fail("objects with no objects/ copy in the project load from the mesh database "
              "and must not be flagged, got:\n" + json.dumps(flagged, indent=2))
-    print(f"ok: valid_min passes ({len(result['warnings'])} warnings)")
+    if not any("imports the legacy skill API v1" in w["msg"] for w in result["warnings"]):
+        fail("valid_min (v1 import) should warn about the legacy skill API")
+    print(f"ok: valid_min (legacy v1) passes ({len(result['warnings'])} warnings)")
 
     # 4. Broken fixture → every planted defect reported.
     result = run_validator(FIXTURES / "broken")

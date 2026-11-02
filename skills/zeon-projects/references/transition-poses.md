@@ -12,14 +12,15 @@ and goal configurations.
 
 ## Why this matters — use these by default when a skill relocates an arm
 
-- **IK reliability.** A `move_arm_js` target *is* the joint configuration —
-  there is no IK solve, so the move cannot fail IK or flip to an awkward
-  elbow branch. A long free-space Cartesian `move_arm` must solve IK from
-  whatever configuration the arm happens to be in (`max_ik_retries=3`) and
-  can fail or pick a wrapped solution mid-run. Routing the slew through
-  transition poses and starting the final Cartesian approach from the
-  nearest one also gives the IK a consistent seed — the same approach
-  solves the same way every run.
+- **Branch reliability.** A `move_arm_js` target *is* the joint
+  configuration — there is no IK solve, so the goal cannot land on an
+  awkward elbow or wrist branch. A long free-space `move_arm` to a pose
+  resolves its goal configuration from wherever the arm happens to be
+  (then across the target's configurations), so the same request can end
+  on a different branch run to run (a `posture=` pins it). Routing the slew
+  through transition poses and starting the final approach from the nearest
+  one gives every approach the same start — it plans the same way every run.
+  Both verbs are planned and collision-checked.
 - **Modularity.** A skill that **begins and ends at (or near) a transition
   pose** composes with any other skill without pairwise path planning —
   whatever ran before, the arm is in a known, retracted configuration.
@@ -108,8 +109,8 @@ clear the other arm to an `OUTER_*`, `FORWARD_*`, or `BACK_*` pose — as an
 explicit prior step, not an assumption:
 
 ```python
-move_arm_js(arm="right_arm", joint_angles=RIGHT_OUTER_DOWN, speed=0.5)  # clear first
-move_arm_js(arm="left_arm", joint_angles=LEFT_INNER_DOWN, speed=0.5)   # then swing in
+move_arm_js("right", RIGHT_OUTER_DOWN, speed=0.5)  # clear first
+move_arm_js("left", LEFT_INNER_DOWN, speed=0.5)    # then swing in
 ```
 
 Two skills that are each individually safe can collide when sequenced if
@@ -122,7 +123,7 @@ workflow authors know.
 
 There is no static instrument→pose map — instrument positions vary per
 world, so **read the world to pick the route**. Get the target object's
-world position (`get_object_pose(name)` at run time; the instance's
+world position (`get_object_pose(name).xyz` at run time; the instance's
 `mount.world_P_body_fixed.xyz` in `world_state.json` at authoring time)
 and derive the azimuth:
 
@@ -144,13 +145,14 @@ Then: nearest transition pose → final anchor-driven approach.
   already defines transition poses (any naming), **the project's values win**
   — they may be calibrated for that bench. Copy the canonical tables in only
   when the project has none.
-- Reference by name as `move_arm_js` targets (joint-space speeds, e.g. `0.5`):
+- Reference by name as `move_arm_js` targets (`speed` is a fraction of the
+  joint-speed limit, e.g. `0.5`):
 
   ```python
   from utils import LEFT_OUTER_DOWN, LEFT_FORWARD_DOWN
 
-  move_arm_js(arm="left_arm", joint_angles=LEFT_FORWARD_DOWN, speed=0.5)  # retract
-  move_arm_js(arm="left_arm", joint_angles=LEFT_OUTER_DOWN, speed=0.5)    # swing out
+  move_arm_js("left", LEFT_FORWARD_DOWN, speed=0.5)  # retract
+  move_arm_js("left", LEFT_OUTER_DOWN, speed=0.5)    # swing out
   # ...then the final anchor-driven approach (references/patterns.md)
   ```
 

@@ -1,0 +1,27 @@
+{
+  "workflow_id": "plate_flow",
+  "name": "Plate to stand",
+  "description": "",
+  "version": "1.0.0",
+  "author": "",
+  "created_at": "2026-11-01T00:00:00.000Z",
+  "updated_at": "2026-11-01T00:00:00.000Z",
+  "simulation_validated": false,
+  "objects": [],
+  "inputs": [
+    { "name": "plate", "type": "object", "description": "The plate to move", "defaultValue": "plate_1" }
+  ],
+  "nodes": [
+    { "node_id": "start_0", "type": "start", "label": "Start" },
+    { "node_id": "move", "type": "skill", "label": "Plate to stand",
+      "skill_id": "plate_to_stand",
+      "parameters": { "plate": { "$input": "plate" }, "stand": { "object_ref": "stand_1" } } },
+    { "node_id": "end_0", "type": "end", "label": "End" }
+  ],
+  "edges": [
+    { "edge_id": "e0", "from_node": "start_0", "to_node": "move",
+      "condition": { "type": "default" } },
+    { "edge_id": "e1", "from_node": "move", "to_node": "end_0",
+      "condition": { "type": "on_success" } }
+  ]
+}

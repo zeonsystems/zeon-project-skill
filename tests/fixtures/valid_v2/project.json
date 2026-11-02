@@ -1,0 +1,9 @@
+{
+  "name": "valid-v2 fixture",
+  "description": "Minimal valid skill API v2 project for validator regression tests",
+  "created_at": "2026-11-01T00:00:00.000Z",
+  "updated_at": "2026-11-01T00:00:00.000Z",
+  "archived": false,
+  "active_workflow": "plate_flow",
+  "active_world": "bench"
+}

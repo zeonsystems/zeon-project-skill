@@ -12,9 +12,13 @@ that would otherwise surface mid-run on hardware become local errors:
     function's actual signature (missing required param aborts a run;
     unknown keys are silently ignored by the executor)
   - imports and call sites in robotic_code.py are linted against the
-    platform's curated execution-function API (references/execution-functions.json)
-  - literal `arm` arguments must be exactly "left_arm"/"right_arm" (anything
-    else silently selects the right arm at runtime)
+    platform's skill API: v2 `from execution.skill_api import *`
+    (references/skill-api.json); legacy v1 `execution.execution_functions`
+    (references/execution-functions.json) is accepted with a warning, and
+    calls to its retired motion verbs are errors (they raise)
+  - literal `arm` arguments: v2 "left"/"right" (or "left_arm"/"right_arm");
+    v1 exactly "left_arm"/"right_arm" (anything else silently selects the
+    right arm at runtime)
   - anchors referenced by skill code must exist in object models (checked only
     for objects with a project copy; an object with no objects/<type>/ folder
     loads from the mesh database and is not flagged)
@@ -58,6 +62,7 @@ VALID_EDGE_CONDITIONS = {
 INPUT_TYPES = {"string", "int", "float", "object", "structured"}
 PARAM_TYPES = {"string", "float", "int", "boolean", "object", "array"}
 KNOWN_WORLD_VERSIONS = {"2.0", "3.0"}
+KNOWN_WORLD_FORMATS = {"zeon_world_state/2"}
 
 # State keys the engine injects/overwrites; a skill parameter with one of
 # these names receives engine data, not the author's value.
@@ -70,9 +75,16 @@ RESERVED_STATE_KEYS = {
 # exempt from "required but unbound" and "unknown key" checks.
 ENGINE_INJECTED_PARAMS = {"current_item", "execution_id", "node_id"}
 
-# Functions whose `arm` argument silently falls back to the RIGHT arm for any
+# v1: a function's `arm` argument silently falls back to the RIGHT arm for any
 # string other than "left_arm" — a wrong-arm motion, not an error.
 VALID_ARMS = {"left_arm", "right_arm"}
+# v2: the setup's sides; the v1 spelling is accepted; anything else raises
+# ArmNotInSetup when the call runs.
+VALID_ARMS_V2 = {"left", "right", "left_arm", "right_arm"}
+
+# Import sources of the two skill API generations.
+V2_MODULE = "execution.skill_api"
+V1_MODULE = "execution.execution_functions"
 
 # Annotation base names the platform maps to parameter types; anything else
 # degrades the derived schema.
@@ -92,7 +104,8 @@ MESH_SUFFIXES = {".obj", ".stl", ".glb", ".gltf", ".ply", ".dae"}
 # Motion functions whose safety flag must never be disabled silently. The
 # current platform API has no `safe` parameter at all (passing it TypeErrors),
 # but older projects and injected instructions have used it — flag both ways.
-SAFETY_SENSITIVE_CALLS = {"move_arm", "move_arm_js", "move_relative"}
+SAFETY_SENSITIVE_CALLS = {"move_arm", "move_arm_js", "move_relative", "move_line_direct",
+                          "move_relative_direct", "move_path"}
 
 
 class Report:
@@ -101,10 +114,14 @@ class Report:
         self.warnings: list[dict[str, str]] = []
 
     def err(self, where: str, msg: str) -> None:
-        self.errors.append({"where": where, "msg": msg})
+        entry = {"where": where, "msg": msg}
+        if entry not in self.errors:
+            self.errors.append(entry)
 
     def warn(self, where: str, msg: str) -> None:
-        self.warnings.append({"where": where, "msg": msg})
+        entry = {"where": where, "msg": msg}
+        if entry not in self.warnings:
+            self.warnings.append(entry)
 
 
 def _load_json(path: Path, report: Report) -> Optional[Any]:
@@ -151,14 +168,38 @@ def _item_dirs(parent: Path) -> list[Path]:
 # Execution-function manifest
 # ---------------------------------------------------------------------------
 
-def load_manifest() -> dict:
-    """Load the vendored platform API manifest; {} when unavailable."""
-    path = Path(__file__).resolve().parent.parent / "references" / "execution-functions.json"
+def _load_manifest_file(name: str) -> dict:
+    path = Path(__file__).resolve().parent.parent / "references" / name
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-        return data.get("functions", {})
+        return json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return {}
+
+
+def load_manifests() -> dict:
+    """The vendored skill API manifests: {"v2": {...}, "v1": {...},
+    "v2_by_name": {...}} (each {} when unavailable)."""
+    v2 = _load_manifest_file("skill-api.json")
+    v1 = _load_manifest_file("execution-functions.json")
+    return {
+        "v2": v2.get("functions", {}),
+        "v1": v1.get("functions", {}),
+        "v2_by_name": v2.get("importable_by_name", {}),
+    }
+
+
+def load_manifest() -> dict:
+    """The v2 skill API manifest's functions; {} when unavailable."""
+    return load_manifests()["v2"]
+
+
+def _platform_api(mod: str) -> Optional[str]:
+    """"v2" / "v1" when an import's module is a skill API package, else None."""
+    if mod == V2_MODULE or mod.startswith(V2_MODULE + "."):
+        return "v2"
+    if "execution_functions" in mod:
+        return "v1"
+    return None
 
 
 def _manifest_params(entry: dict) -> Optional[dict]:
@@ -222,7 +263,7 @@ def validate_active_refs(project: dict, workflow_ids: set[str],
 # skills/
 # ---------------------------------------------------------------------------
 
-def validate_skills(root: Path, report: Report, manifest: dict,
+def validate_skills(root: Path, report: Report, manifests: dict,
                     world_info: dict) -> tuple[int, dict[str, dict]]:
     """Validate all skills. Returns (count, {skill_id: signature model})."""
     signatures: dict[str, dict] = {}
@@ -256,7 +297,7 @@ def validate_skills(root: Path, report: Report, manifest: dict,
             report.err(f"{where}/robotic_code.py", "missing")
             continue
         sig = _check_robotic_code(
-            code_path, name, report, manifest,
+            code_path, name, report, manifests,
             modules_exists=modules_path.is_file(),
             modules_names=modules_names,
             modules_star=modules_star,
@@ -308,32 +349,36 @@ def _module_top_level_names(path: Path, report: Report) -> set[str]:
 
 
 def _parse_modules_shim(path: Path, report: Report, skills_root: Path,
-                        _seen: Optional[set[Path]] = None) -> tuple[set[str], bool]:
-    """Names available via `from .modules import ...` and whether the shim
-    star-imports the platform API (directly or through sibling chains)."""
+                        _seen: Optional[set[Path]] = None) -> tuple[set[str], set[str]]:
+    """Names available via `from .modules import ...` and which skill API
+    generations ("v2" / "v1") the shim star-imports (directly or through
+    sibling chains); an empty set when it star-imports none."""
     if not path.is_file():
-        return set(), False
+        return set(), set()
     seen = _seen if _seen is not None else set()
     resolved = path.resolve()
     if resolved in seen:
-        return set(), False
+        return set(), set()
     seen.add(resolved)
     try:
         tree = ast.parse(path.read_text(encoding="utf-8"))
     except SyntaxError as exc:
         report.err(str(path), f"syntax error: {exc}")
-        return set(), False
+        return set(), set()
     except (OSError, UnicodeDecodeError, ValueError) as exc:
         report.err(str(path), f"cannot read: {exc}")
-        return set(), False
+        return set(), set()
     names = _module_top_level_names(path, report)
-    star = False
+    star: set[str] = set()
     for node in ast.walk(tree):
         if isinstance(node, ast.ImportFrom):
             mod = node.module or ""
             is_star = any(a.name == "*" for a in node.names)
-            if "execution_functions" in mod and is_star:
-                star = True
+            api = _platform_api(mod)
+            if api == "v1":
+                report.warn(str(path), V1_IMPORT_WARNING)
+            if api and is_star:
+                star.add(api)
             elif mod.endswith(".modules") and is_star:
                 sibling = mod.split(".")[0]
                 sib_path = skills_root / sibling / "modules.py"
@@ -341,10 +386,17 @@ def _parse_modules_shim(path: Path, report: Report, skills_root: Path,
                     sib_names, sib_star = _parse_modules_shim(sib_path, report,
                                                               skills_root, seen)
                     names |= sib_names
-                    star = star or sib_star
+                    star |= sib_star
             elif not is_star:
                 names |= {a.asname or a.name for a in node.names}
     return names, star
+
+
+V1_IMPORT_WARNING = (
+    "imports the legacy skill API v1 (execution.execution_functions); the current API is v2: "
+    "`from execution.skill_api import *` in modules.py (references/skills.md). v1's Cartesian "
+    "motion verbs (move_arm, move_relative, play_object_motion, interpolate_anchor_*) raise on "
+    "the current platform")
 
 
 def _check_skill_metadata(meta: dict, folder: str, where: str, report: Report) -> None:
@@ -413,9 +465,9 @@ def _annotation_base(node: ast.expr) -> Optional[str]:
     return None
 
 
-def _check_robotic_code(path: Path, folder: str, report: Report, manifest: dict,
+def _check_robotic_code(path: Path, folder: str, report: Report, manifests: dict,
                         *, modules_exists: bool, modules_names: set[str],
-                        modules_star: bool, utils_names: set[str],
+                        modules_star: set[str], utils_names: set[str],
                         world_info: dict, project_root: Path) -> Optional[dict]:
     """Validate one robotic_code.py. Returns the skill's signature model."""
     where = str(path)
@@ -446,6 +498,28 @@ def _check_robotic_code(path: Path, folder: str, report: Report, manifest: dict,
         report.err(where, f"must define a top-level function {expected_fn}() "
                           "(the platform derives the skill's parameters from its signature)")
 
+    # ---- which skill API generation this skill uses ------------------------
+    apis: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom):
+            mod = node.module or ""
+            api = _platform_api(mod)
+            if api:
+                apis.add(api)
+            elif (mod in {"modules", ".modules"} or mod.endswith(".modules")) and \
+                    any(a.name == "*" for a in node.names):
+                apis |= modules_star
+            elif mod in {"modules", ".modules"} or mod.endswith(".modules") or \
+                    (node.level == 1 and mod == "modules"):
+                # named imports from the shim: the shim's generation
+                apis |= modules_star
+    api = "v2" if "v2" in apis or not apis else "v1"
+    manifest = manifests.get(api, {})
+    by_name = manifests.get("v2_by_name", {}) if api == "v2" else {}
+    if "v1" in apis and any(_platform_api(n.module or "") == "v1" for n in ast.walk(tree)
+                            if isinstance(n, ast.ImportFrom)):
+        report.warn(where, V1_IMPORT_WARNING)
+
     # ---- imports -----------------------------------------------------------
     imported: set[str] = set()
     shadowed: set[str] = set()  # names bound locally or from non-platform modules
@@ -463,13 +537,13 @@ def _check_robotic_code(path: Path, folder: str, report: Report, manifest: dict,
             is_star = any(a.name == "*" for a in node.names)
             from_shim = mod in {"modules", ".modules"} or mod.endswith(".modules") or (
                 node.level == 1 and mod == "modules")
-            from_platform = "execution_functions" in mod
+            from_platform = _platform_api(mod) is not None
             if from_shim and not modules_exists:
                 report.err(where, f"imports from .modules but {folder}/modules.py does "
                                   "not exist (ImportError at load)")
             if is_star:
                 if from_shim:
-                    star_platform = star_platform or modules_star
+                    star_platform = star_platform or bool(modules_star)
                     imported |= modules_names
                 elif from_platform:
                     star_platform = True
@@ -478,16 +552,20 @@ def _check_robotic_code(path: Path, folder: str, report: Report, manifest: dict,
                 imported.add(a.asname or a.name)
                 nm = a.name
                 if from_shim:
-                    if manifest and nm not in manifest and nm not in modules_names and not modules_star:
+                    if manifest and nm not in manifest and nm not in by_name \
+                            and nm not in modules_names and not modules_star:
                         report.warn(where, f"imports {nm!r} from .modules but it is neither "
                                            "in the platform API manifest nor defined in "
                                            "modules.py — possible ImportError at load")
                 elif from_platform:
-                    if manifest and nm not in manifest:
-                        report.warn(where, f"imports {nm!r} from execution.execution_functions "
-                                           "— not in the curated skill-facing API (__all__); "
-                                           "works only if the module defines it internally "
-                                           "(unsupported surface)")
+                    src_api = _platform_api(mod)
+                    src_manifest = manifests.get(src_api, {})
+                    src_by_name = manifests.get("v2_by_name", {}) if src_api == "v2" else {}
+                    if src_manifest and nm not in src_manifest and nm not in src_by_name:
+                        report.warn(where, f"imports {nm!r} from {mod} — not in the "
+                                           "curated skill-facing API (__all__); works only if "
+                                           "the module defines it internally (unsupported "
+                                           "surface)")
                 elif mod == "utils" and utils_names:
                     if nm not in utils_names:
                         report.err(where, f"imports {nm!r} from utils but skills/utils.py "
@@ -566,10 +644,22 @@ def _check_robotic_code(path: Path, folder: str, report: Report, manifest: dict,
         if fn_name not in available and not star_platform:
             report.warn(where, f"line {node.lineno}: call to {fn_name!r} which is neither "
                                "imported nor defined here — possible NameError at run time")
+        elif fn_name not in available and star_platform and fn_name in by_name:
+            report.err(where, f"line {node.lineno}: {fn_name!r} is not star-exported by "
+                              f"{V2_MODULE} — import it by name (`from {V2_MODULE} import "
+                              f"{fn_name}`); NameError at run time")
         elif fn_name not in available and star_platform and manifest and fn_name not in manifest:
             report.warn(where, f"line {node.lineno}: call to {fn_name!r} resolved only via "
                                "star-import, but it is not in the platform API manifest — "
                                "possible NameError at run time")
+
+        if entry and entry.get("retired"):
+            report.err(where, f"line {node.lineno}: {fn_name}() is a retired v1 verb — it raises "
+                              "on the current platform; port the skill to v2 "
+                              f"(`from {V2_MODULE} import *`; references/skills.md)")
+        elif entry and entry.get("deprecated"):
+            report.warn(where, f"line {node.lineno}: {fn_name}() is deprecated in the skill API "
+                               f"({entry['deprecated']})")
 
         if model:
             has_star_args = any(isinstance(x, ast.Starred) for x in node.args)
@@ -597,8 +687,8 @@ def _check_robotic_code(path: Path, folder: str, report: Report, manifest: dict,
                     report.err(where, f"line {node.lineno}: {fn_name}() missing required "
                                       f"argument(s): {', '.join(missing)} — TypeError at run time")
 
-            # Arm-literal check: any string other than left_arm/right_arm
-            # silently selects the RIGHT arm at run time.
+            # Arm-literal check. v1: any string other than left_arm/right_arm
+            # silently selects the RIGHT arm at run time; v2: raises.
             if any(p["name"] == "arm" for p in model["positional"]) or "arm" in model["all_names"]:
                 arm_val = None
                 for kw in node.keywords:
@@ -609,7 +699,12 @@ def _check_robotic_code(path: Path, folder: str, report: Report, manifest: dict,
                     argnode = node.args[arm_idx]
                     if isinstance(argnode, ast.Constant):
                         arm_val = argnode.value
-                if isinstance(arm_val, str) and arm_val not in VALID_ARMS:
+                if api == "v2" and isinstance(arm_val, str) and arm_val not in VALID_ARMS_V2:
+                    report.err(where, f"line {node.lineno}: {fn_name}(arm={arm_val!r}) — arm "
+                                      "must be 'left' or 'right' (the v1 spelling 'left_arm' / "
+                                      "'right_arm' is accepted); anything else raises "
+                                      "ArmNotInSetup")
+                elif api == "v1" and isinstance(arm_val, str) and arm_val not in VALID_ARMS:
                     report.err(where, f"line {node.lineno}: {fn_name}(arm={arm_val!r}) — arm "
                                       "must be exactly 'left_arm' or 'right_arm'; anything "
                                       "else silently moves the RIGHT arm")
@@ -625,7 +720,8 @@ def _check_robotic_code(path: Path, folder: str, report: Report, manifest: dict,
                                        "confirm intent with the user")
 
         # Anchor / object-name cross-reference on literal calls.
-        if fn_name in {"load_object_anchor", "get_object_pose", "update_object_joint_config"}:
+        if fn_name in {"load_object_anchor", "get_object_pose", "update_object_joint_config",
+                       "anchor", "get_anchor_pose", "list_anchors"} and fn_name not in shadowed:
             _check_object_literal_call(node, fn_name, where, report, world_info, project_root)
 
         # live_state access keys strictly by instance id — a display name
@@ -653,7 +749,7 @@ def _check_object_literal_call(node: ast.Call, fn_name: str, where: str,
     args = [a.value if isinstance(a, ast.Constant) else None for a in node.args]
     kwargs = {kw.arg: kw.value.value for kw in node.keywords
               if kw.arg and isinstance(kw.value, ast.Constant)}
-    obj = kwargs.get("object_name") or (args[0] if args else None)
+    obj = kwargs.get("object_name") or kwargs.get("obj") or (args[0] if args else None)
     if not isinstance(obj, str):
         return
     resolved = _resolve_object_type(obj, world_info, project_root)
@@ -665,8 +761,8 @@ def _check_object_literal_call(node: ast.Call, fn_name: str, where: str,
         # model itself can come from the mesh database, so this is not an issue.
         return
     obj_type = resolved
-    if fn_name == "load_object_anchor":
-        anchor = kwargs.get("anchor_name") or (args[1] if len(args) > 1 else None)
+    if fn_name in {"load_object_anchor", "anchor", "get_anchor_pose"}:
+        anchor = kwargs.get("anchor_name") or kwargs.get("name") or (args[1] if len(args) > 1 else None)
         if isinstance(anchor, str):
             anchors = _object_anchors(project_root, obj_type)
             if anchors is not None and anchor not in anchors:
@@ -1092,6 +1188,8 @@ def collect_world_info(root: Path) -> dict:
                 continue
             meta = entry.get("metadata")
             meta = meta if isinstance(meta, dict) else {}
+            if not meta and isinstance(entry.get("type"), str) and entry.get("type") != "primitive":
+                meta = entry  # world-file format: type / name at the top of the entry
             otype = meta.get("type")
             if isinstance(otype, str):
                 name_to_type[key] = otype
@@ -1125,7 +1223,15 @@ def validate_worlds(root: Path, report: Report) -> tuple[int, set[str]]:
         if not isinstance(data, dict):
             continue
         version = data.get("version")
-        if str(version) not in KNOWN_WORLD_VERSIONS:
+        fmt = data.get("format")
+        if isinstance(fmt, str) and fmt in KNOWN_WORLD_FORMATS:
+            # The world-file format: world_state.json is a manifest of the
+            # instances (type, name, parent, seat) next to the world file it
+            # names; poses and the scene tree live in that file.
+            wfile = data.get("world")
+            if isinstance(wfile, str) and not (world_dir / wfile).is_file():
+                report.err(f"{where}/world_state.json", f"names world file {wfile!r}, which does not exist")
+        elif str(version) not in KNOWN_WORLD_VERSIONS:
             report.warn(f"{where}/world_state.json",
                         f"unknown schema version {version!r} (known: {sorted(KNOWN_WORLD_VERSIONS)})")
         objects = data.get("objects")
@@ -1414,13 +1520,13 @@ def validate_files(root: Path, report: Report) -> None:
 
 def run(root: Path) -> dict:
     report = Report()
-    manifest = load_manifest()
-    if not manifest:
-        report.warn("validate.py", "execution-function manifest not found — API call-site "
-                                   "checks skipped")
+    manifests = load_manifests()
+    if not manifests["v2"]:
+        report.warn("validate.py", "skill API manifest (references/skill-api.json) not found — "
+                                   "API call-site checks skipped")
     world_info = collect_world_info(root)
     project = validate_project_json(root, report)
-    n_skills, skill_sigs = validate_skills(root, report, manifest, world_info)
+    n_skills, skill_sigs = validate_skills(root, report, manifests, world_info)
     n_workflows, workflow_ids, canvas_refs, all_input_names = validate_workflows(
         root, report, skill_sigs)
     n_worlds, world_names = validate_worlds(root, report)

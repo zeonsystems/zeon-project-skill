@@ -1,15 +1,173 @@
 {
-  "source": "execution.execution_functions, platform source dated 2026-10-16",
-  "note": "Curated skill-facing API (__all__). Regenerate with scripts/dev/gen_function_manifest.py.",
+  "api": "v1",
+  "source": "execution.execution_functions, platform source dated 2026-11-01",
+  "note": "Skill API v1 (legacy; `from execution.execution_functions import *`). Entries marked retired raise on the current platform: port the skill to v2 (skill-api.json). Regenerate with scripts/dev/gen_function_manifest.py --api v1.",
   "functions": {
+    "run_parallel": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "tasks",
+          "kind": "positional",
+          "annotation": "Dict[str, Callable[[], NoneType]]"
+        },
+        {
+          "name": "timeout",
+          "kind": "positional",
+          "annotation": "float",
+          "default": "180.0"
+        }
+      ],
+      "doc": "Run one zero-argument callable per arm, concurrently, and wait for both."
+    },
+    "ARM_NAMES": {
+      "kind": "constant",
+      "value": "('left_arm', 'right_arm')"
+    },
+    "spawn_object": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "object_type",
+          "kind": "positional",
+          "annotation": "str"
+        },
+        {
+          "name": "name",
+          "kind": "positional",
+          "annotation": "str"
+        },
+        {
+          "name": "xyz",
+          "kind": "positional",
+          "annotation": "list"
+        },
+        {
+          "name": "wxyz",
+          "kind": "positional",
+          "annotation": "list | None",
+          "default": "None"
+        },
+        {
+          "name": "joint_config",
+          "kind": "positional",
+          "annotation": "dict | None",
+          "default": "None"
+        },
+        {
+          "name": "object_id",
+          "kind": "positional",
+          "annotation": "str | None",
+          "default": "None"
+        }
+      ],
+      "doc": "Create a world object of `object_type` at a world pose and return its world id."
+    },
+    "despawn_object": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "obj",
+          "kind": "positional",
+          "annotation": "SkillObject | str"
+        }
+      ],
+      "doc": "Remove a world object a protocol has consumed or discarded."
+    },
+    "replace_object": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "obj",
+          "kind": "positional",
+          "annotation": "SkillObject | str"
+        },
+        {
+          "name": "object_type",
+          "kind": "positional",
+          "annotation": "str"
+        },
+        {
+          "name": "xyz",
+          "kind": "positional",
+          "annotation": "list | None",
+          "default": "None"
+        },
+        {
+          "name": "wxyz",
+          "kind": "positional",
+          "annotation": "list | None",
+          "default": "None"
+        },
+        {
+          "name": "name",
+          "kind": "positional",
+          "annotation": "str | None",
+          "default": "None"
+        }
+      ],
+      "doc": "Swap an object for one of another type under the SAME world id; returns that id."
+    },
+    "resolve_object_id": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "obj",
+          "kind": "positional",
+          "annotation": "SkillObject | str"
+        }
+      ],
+      "doc": "World id for a `SkillObject`, a world id, or a display name."
+    },
     "SkillObject": {
-      "kind": "reexport"
+      "kind": "class",
+      "doc": "A world object passed directly into a skill function.",
+      "fields": [
+        "id",
+        "pose"
+      ]
     },
     "ExecutionInfoContext": {
-      "kind": "reexport"
+      "kind": "class",
+      "doc": "Thread-local holder for the current execution/node identifiers.",
+      "methods": {
+        "set": {
+          "signature": [
+            {
+              "name": "execution_id",
+              "kind": "positional",
+              "annotation": "str"
+            },
+            {
+              "name": "node_id",
+              "kind": "positional",
+              "annotation": "str"
+            },
+            {
+              "name": "label",
+              "kind": "positional",
+              "annotation": "str",
+              "default": "''"
+            }
+          ],
+          "doc": "Install execution info for the current thread."
+        },
+        "clear": {
+          "signature": [],
+          "doc": "Remove execution info after skill execution completes."
+        },
+        "get": {
+          "signature": [],
+          "doc": "Return the current execution info, or empty info if none installed."
+        }
+      }
     },
     "ExecutionCancelledInSkillError": {
-      "kind": "reexport"
+      "kind": "class",
+      "doc": "Raised when execution is cancelled while paused inside a skill.",
+      "bases": [
+        "Exception"
+      ]
     },
     "print_log": {
       "kind": "function",
@@ -53,7 +211,7 @@
           "default": "False"
         }
       ],
-      "doc": "Return the active project's authoring data folder ``<project_root>/data[/subdir]``."
+      "doc": "Return the active project's authoring data folder `<project_root>/data[/subdir]`."
     },
     "api_request": {
       "kind": "function",
@@ -100,7 +258,7 @@
         {
           "name": "timeout",
           "kind": "keyword_only",
-          "default": "_DEFAULT_TIMEOUT_S"
+          "default": "30"
         },
         {
           "name": "auth_secret",
@@ -123,12 +281,12 @@
           "default": "None"
         }
       ],
-      "doc": "Return the secret stored under ``name``, or ``default`` if unavailable."
+      "doc": "Return the secret stored under `name`, or `default` if unavailable."
     },
     "liquid_state_path": {
       "kind": "function",
       "signature": [],
-      "doc": "Return ``execution_dir()/liquid_transfer.json`` (None without an execution)."
+      "doc": "Return `execution_dir()/liquid_transfer.json` (None without an execution)."
     },
     "load_liquid_state": {
       "kind": "function",
@@ -311,7 +469,7 @@
           "default": "0.1"
         }
       ],
-      "doc": "Sleep for ``seconds`` while honoring pause/resume signals."
+      "doc": "Sleep for `seconds` while honoring pause/resume signals."
     },
     "send_slack": {
       "kind": "function",
@@ -433,7 +591,8 @@
           "default": "3"
         }
       ],
-      "doc": "Move the arm's TCP to a Cartesian pose."
+      "doc": "Retired: raises. Use the skill API's `move_arm` (execution.skill_api), which plans through the motion controller.",
+      "retired": true
     },
     "move_arm_js": {
       "kind": "function",
@@ -481,7 +640,8 @@
           "default": "True"
         }
       ],
-      "doc": "Move arm relative to current position."
+      "doc": "Retired: raises. Use the skill API's `move_relative` (execution.skill_api).",
+      "retired": true
     },
     "get_arm_pose": {
       "kind": "function",
@@ -491,7 +651,7 @@
           "kind": "positional"
         }
       ],
-      "doc": "Get current Cartesian pose of the arm's TCP (Tool Center Point)."
+      "doc": "Current world pose of the arm's TCP, from the World (what the arm's stream last reported)."
     },
     "set_gripper": {
       "kind": "function",
@@ -519,7 +679,7 @@
           "kind": "positional"
         }
       ],
-      "doc": "Attach object to arm and sync world."
+      "doc": "Hang an object on the arm's TCP where it is now (a grasp)."
     },
     "detach_object_from_arm": {
       "kind": "function",
@@ -529,7 +689,7 @@
           "kind": "positional"
         }
       ],
-      "doc": "Detach object from arm and sync world."
+      "doc": "Release an object onto the world where it is now."
     },
     "capture_image": {
       "kind": "function",
@@ -570,12 +730,7 @@
         {
           "name": "arm",
           "kind": "keyword_only",
-          "default": "'left_arm'"
-        },
-        {
-          "name": "mode",
-          "kind": "keyword_only",
-          "default": "'corner'"
+          "default": "None"
         },
         {
           "name": "use_prior",
@@ -593,11 +748,6 @@
           "default": "10.0"
         },
         {
-          "name": "use_full_theta",
-          "kind": "keyword_only",
-          "default": "False"
-        },
-        {
           "name": "tag_edge_m",
           "kind": "keyword_only",
           "default": "None"
@@ -610,12 +760,12 @@
         {
           "name": "sigma_px",
           "kind": "keyword_only",
-          "default": "1.0"
+          "default": "0.5"
         },
         {
           "name": "huber_px",
           "kind": "keyword_only",
-          "default": "2.0"
+          "default": "None"
         },
         {
           "name": "pos_sigma_gate_mm",
@@ -641,9 +791,19 @@
           "name": "index",
           "kind": "keyword_only",
           "default": "None"
+        },
+        {
+          "name": "mode",
+          "kind": "keyword_only",
+          "default": "'corner'"
+        },
+        {
+          "name": "use_full_theta",
+          "kind": "keyword_only",
+          "default": "None"
         }
       ],
-      "doc": "Relocalize ``object_name`` from AprilTags and refine its world pose; return a diagnostic."
+      "doc": "Relocalize `object_name` from AprilTags and refine its world pose; return a diagnostic."
     },
     "is_sim_mode": {
       "kind": "function",
@@ -665,7 +825,7 @@
           "default": "None"
         }
       ],
-      "doc": "Get the world-frame pose of an object by name and optional index."
+      "doc": "Get the world-frame pose of an object's placement frame by name (or id) and optional index."
     },
     "load_object_anchor": {
       "kind": "function",
@@ -819,7 +979,8 @@
           "default": "True"
         }
       ],
-      "doc": "Replay a stored motion, rebased onto the object's current pose."
+      "doc": "Replay a stored motion, rebased onto the object's current pose. Retired: raises (no skill API verb yet).",
+      "retired": true
     },
     "anchor_preapproach": {
       "kind": "function",
@@ -847,7 +1008,7 @@
           "annotation": "str"
         }
       ],
-      "doc": "Return the per-world *live state* for one object, keyed by its UUID."
+      "doc": "Return the per-world *live state* for one object, keyed by its world id."
     },
     "set_world_state": {
       "kind": "function",
@@ -879,7 +1040,7 @@
           "annotation": "dict"
         }
       ],
-      "doc": "Update the world model's joint config for an articulated object."
+      "doc": "Update the world model's joints for an articulated object."
     },
     "snap_object_to_world_pose": {
       "kind": "function",
@@ -928,6 +1089,34 @@
       ],
       "doc": "Snap an object so that a named anchor aligns with an explicit world-frame target pose."
     },
+    "seat_object": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "object_id",
+          "kind": "positional",
+          "annotation": "str"
+        },
+        {
+          "name": "holder_id",
+          "kind": "positional",
+          "annotation": "str"
+        },
+        {
+          "name": "seat_anchor",
+          "kind": "positional",
+          "annotation": "str",
+          "default": "'top_center'"
+        },
+        {
+          "name": "seat",
+          "kind": "positional",
+          "annotation": "str",
+          "default": "'aligned'"
+        }
+      ],
+      "doc": "Seat an object on a holder: snap it there and record where it sits."
+    },
     "get_object_tcp_transform": {
       "kind": "function",
       "signature": [
@@ -937,7 +1126,7 @@
           "annotation": "str"
         }
       ],
-      "doc": "Return the TCP-to-object transform for an object currently attached to an arm."
+      "doc": "Return the TCP-to-object transform for an object currently held by an arm."
     },
     "interpolate_anchor_joint_path": {
       "kind": "function",
@@ -999,7 +1188,8 @@
           "default": "True"
         }
       ],
-      "doc": "Sweep an articulated object's joint(s) and move ``arm`` along the anchor arc."
+      "doc": "Sweep an articulated object's joint(s) and move `arm` along the anchor arc. Retired: raises (no skill API verb yet).",
+      "retired": true
     },
     "interpolate_anchor_to_anchor": {
       "kind": "function",
@@ -1067,7 +1257,8 @@
           "default": "None"
         }
       ],
-      "doc": "Move ``arm`` between two resolved anchor poses."
+      "doc": "Move `arm` between two resolved anchor poses. Retired: raises (no skill API verb yet).",
+      "retired": true
     },
     "init_epipette": {
       "kind": "function",
@@ -1090,7 +1281,7 @@
           "default": "True"
         }
       ],
-      "doc": "Connect to an epipette and register it under a logical name."
+      "doc": "Wait until a pipette is connected on the pipette server and return a handle for it (None if it is not)."
     },
     "epipette_aspirate": {
       "kind": "function",
@@ -1182,7 +1373,7 @@
           "annotation": "str"
         }
       ],
-      "doc": "Disconnect a named epipette device."
+      "doc": "Disconnect a named epipette device (AUTO 0 and disconnect; `epipette_reconnect` brings it back)."
     },
     "epipette_reconnect": {
       "kind": "function",
@@ -1193,7 +1384,7 @@
           "annotation": "str"
         }
       ],
-      "doc": "Re-establish a dropped BLE link to an already-initialized epipette."
+      "doc": "Ask the pipette server to re-establish a pipette's link (it re-arms motor control + AUTO, never homes)."
     },
     "EPIPETTE": {
       "kind": "constant",
@@ -1221,11 +1412,14 @@
           "annotation": "str"
         }
       ],
-      "doc": "Raise unless ``name`` is an enabled pipette on this rig."
+      "doc": "Raise unless `name` is an enabled pipette on this rig."
     },
     "EpipetteNotConfiguredError": {
       "kind": "class",
-      "doc": "Asked for a pipette this rig does not have enabled. Names the fix."
+      "doc": "Asked for a pipette this rig does not have enabled. Names the fix.",
+      "bases": [
+        "RuntimeError"
+      ]
     }
   }
 }

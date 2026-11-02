@@ -1,0 +1,21 @@
+{
+  "version": "2.0",
+  "config": { "tensor_device": "cuda", "enable_blox": false, "create_workspace_boundaries": false },
+  "objects": {
+    "plate_1": {
+      "geometry": { "type": "articulated", "yaml_path": "objects/wellplate_pcr/wellplate_pcr.object_model.yaml" },
+      "mount": { "type": "FixedMount",
+        "world_P_body_fixed": { "xyz": [0.35, 0.10, 0.02], "wxyz": [1, 0, 0, 0], "stamp_s": null } },
+      "enabled": true,
+      "metadata": { "type": "wellplate_pcr", "name": "plate_1" }
+    },
+    "stand_1": {
+      "geometry": { "type": "articulated", "yaml_path": "objects/plate_stand/plate_stand.object_model.yaml" },
+      "mount": { "type": "FixedMount",
+        "world_P_body_fixed": { "xyz": [0.35, -0.20, 0.0], "wxyz": [1, 0, 0, 0], "stamp_s": null } },
+      "enabled": true,
+      "metadata": { "type": "plate_stand", "name": "stand_1" }
+    }
+  },
+  "metadata": { "name": "bench", "description": "", "source": "manual" }
+}

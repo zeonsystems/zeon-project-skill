@@ -2,118 +2,126 @@
 
 > Hosted docs: [Skill authoring patterns](https://readme.zeonsystems.app/docs/skill-authoring-patterns.md) · [Arm motion and the gripper](https://readme.zeonsystems.app/docs/arm-motion-and-the-gripper.md) · [How anchor snapping works](https://readme.zeonsystems.app/docs/anchor-snapping.md)
 
-Idioms distilled from the platform's own projects. These are what separate a
+Idioms distilled from the platform's own projects, in the skill API v2
+(`references/skills.md`). These are what separate a
 skill that survives on hardware from one that only looks right.
 
 ## Anchor-driven geometry — never bake numbers
 
-All geometry comes from anchors. Grip widths and standoffs ride on the anchor's
-**grasp block** — read them, don't hardcode:
+All geometry comes from anchors. `anchor(obj, name)` returns an `Anchor`
+evaluated in the world now: its `.pose`, and the grasp its object model
+declares — `.width`, `.standoff`, `.gripper_variant`. Read them, don't
+hardcode:
 
 ```python
-grasp = load_object_anchor(plate.id, "grasp_shortside")
-# grasp: {xyz, rpy, wxyz, standoff, width, gripper_variant, object_id}
-pre = anchor_preapproach(grasp)   # world-xyz standoff point, driven by the anchor
-move_arm(arm="left_arm", position=pre, orientation=grasp["rpy"], speed=100)
-move_arm(arm="left_arm", position=grasp["xyz"], orientation=grasp["rpy"], speed=30)
-set_gripper(arm="left_arm", width_m=grasp["width"])       # from the anchor, not a constant
+g = anchor(plate, "grasp_shortside")      # Anchor: .pose, .width, .standoff, .gripper_variant
+set_gripper(ARM, g.width + 0.02)          # open past the grasp width
+move_arm(ARM, g.preapproach())            # the anchor's standoff, else 0.05 m, back along its -z
+move_arm(ARM, g, straight_line=True, tcp_speed=0.02)
+set_gripper(ARM, g.width)                 # from the anchor, not a constant
 ```
 
-`standoff` resolves to the anchor's declared value, else **0.05** — and an
-anchor that explicitly declares `0.0` gets no backoff (authorable). Let the
-anchor drive: call `anchor_preapproach(grasp)` bare, and pass `standoff=` only
-to deliberately override (any number wins over the anchor, including `0.0`).
-`width` still comes back `0.0` when no grasp block exists — fall back to an
-explicit value then, but say so. Hardcoded widths are what make a skill work
-for exactly one piece of labware; when geometry is wrong, the fix is usually
-**re-teach the anchor**, not edit the code.
+`preapproach(standoff=None)` uses the anchor's declared standoff, else
+**0.05 m**; pass `standoff=` only to deliberately override. `width` is `None`
+when the anchor states no grasp — fall back to an explicit value then, but say
+so. Hardcoded widths are what make a skill work for exactly one piece of
+labware; when geometry is wrong, the fix is usually **re-teach the anchor**, not
+edit the code. A missing target is an anchor to add on the holder's object
+model (`references/worlds-and-objects.md`).
 
-`load_object_anchor` also takes `joint_config={joint: angle}` (resolve an
-anchor on an articulated object at a chosen angle) and `index=` (indexed
-anchors like well positions).
+`anchor(obj, name, joints={"lid_joint": 1.2})` evaluates the anchor at
+hypothetical joints of an articulated object (a lid handle where the lid will
+be). `.offset(dxyz, frame="local")` moves it along its own axes.
 
-## The approach shape: preapproach, then a speed ladder
+**Placing held labware means seating it**: the held object's `bottom_center`
+anchor goes onto the holder's seat anchor. The TCP target is the seat composed
+with the held object's `bottom_center`-to-grasp transform, recomputed from the
+world on every move, so it follows the holder wherever localization puts it and
+works for any labware height and grab. Look for such a helper in the project
+(`skills/*.py`) before writing one.
 
-Approach from a standoff and descend at decreasing speeds — fast in free space,
-slow near contact (typical ladders: 100→60→10, or 70→40→10; joint-space moves
-use fractional speeds ~0.5). Lift straight up (world +Z) before any lateral
-move. Small `time.sleep(0.1–0.5)` settles between gripper actions.
+## The approach shape: preapproach, then a straight descent
+
+Approach from a standoff with a planned free move, then go straight in slowly:
+a free `move_arm` (or a taught `move_arm_js` waiting pose) to the preapproach,
+then `straight_line=True` legs at a low `tcp_speed` (typically 0.01-0.03 m/s)
+inside a `contact` scope for the descent, the grasp and the lift. Lift straight
+up (`move_relative(arm, (0, 0, dz))`) before any lateral move.
 
 **Start and end at a transition pose.** Relocating an arm across the
-workspace (between instruments/azimuths) is never a free-space Cartesian
-move: route through the named transition poses as `move_arm_js` waypoints
-(no IK solve — can't fail or elbow-flip), then finish with the anchor-driven
-approach. Skills that begin and end at a transition pose compose with any
-other skill without pairwise path planning — this is the modularity contract
-that makes meta-skills pure sequencing. See `references/transition-poses.md`.
+workspace (between instruments) goes through named joint poses as
+`move_arm_js` waypoints (taught configurations — no IK branch to flip), then
+the anchor-driven approach. Skills that begin and end at a known pose compose
+with any other skill — the modularity contract that makes meta-skills pure
+sequencing. See `references/transition-poses.md`.
 
-## `move_relative` deltas are WORLD-frame
+**Posture.** When a free move to a pose can resolve on more than one arm
+configuration and the wrong one matters (a wrist that flips, an elbow that
+swings through an instrument), pass the project's `posture=` constant
+(`references/skills.md`).
 
-`move_relative` adds `delta_xyz` in the **world frame**, regardless of how the
-tool or object is oriented. For an object-aligned slide, derive the direction
-from the object's own anchors:
+## `move_relative`: world axes by default, tool axes on request
 
-```python
-grasp = load_object_anchor(obj.id, "grasp")
-pre = anchor_preapproach(grasp, standoff=0.06)           # explicit override for a known offset
-d = [g - p for g, p in zip(grasp["xyz"], pre)]           # unit direction × distance
-move_relative(arm="left_arm", delta_xyz=[x * 0.5 for x in d], speed=20)
-```
+`move_relative(arm, dxyz)` moves along the **world** axes (`frame="world"`,
+the default) — what you want for a lift (`(0, 0, 0.03)`). `frame="tool"` moves
+along the TCP's own axes — a push along the approach direction. For an
+object-aligned slide, take the direction from the object's anchors
+(`a.offset((0, 0, 0.01))` is 1 cm along the anchor's z) and target that pose.
 
-Deliberate world-frame lifts (`delta_xyz=[0, 0, 0.1]`) are fine — that's the
-one case where world-frame is what you mean.
+## Contact: permit exactly what touches
 
-## Attach / snap / detach discipline
-
-Attach state is what keeps collision tracking and sim determinism correct.
-
-- **On pick**, right after the gripper closes: assert the canonical grip —
-  snap the object's grasp anchor onto the live TCP, then attach.
-  `get_arm_pose` returns a flat 6-float array (`[x, y, z, roll, pitch, yaw]`),
-  so convert the rpy half to a wxyz quaternion first:
-  ```python
-  import numpy as np
-  from common_models.transform import rpy_to_quat_wxyz
-
-  tcp = get_arm_pose("left_arm")                       # numpy [x,y,z,roll,pitch,yaw]
-  snap_object_anchor_to_world_pose(obj.id, "grasp",
-                                   [float(v) for v in tcp[:3]],
-                                   rpy_to_quat_wxyz(np.asarray(tcp[3:])).tolist())
-  attach_object_to_arm(obj.id, "left_arm")
-  ```
-- **On place**: release the gripper, `detach_object_from_arm(obj.id)`, then
-  snap the object to its seated pose (`snap_object_anchor_to_world_pose` onto
-  the fixture's seat anchor).
-- Snapping **asserts, it does not measure** — sim stays deterministic, but a
-  marginal real grasp still snaps clean. A green sim run is therefore not
-  evidence a grasp is safe; say so when relevant.
-- A snap **pins to a world pose — it does not parent**. An object seated in a
-  fixture does not follow the fixture: if the fixture moves, re-snap the
-  object. Fixtures often carry paired anchors (a *load* pose and a *settled*
-  pose): release at the load anchor, snap to the settled anchor, and target
-  the settled one for later picks.
-
-## Articulated objects (lids, drawers): resolve → sweep → commit
-
-For a lid/lever whose grasp anchor travels with the articulation, use
-`interpolate_anchor_joint_path` — it re-resolves the anchor at every step and
-**commits the joint change to the world model for you** (`sync_joint_config=True`
-by default):
+The planner keeps every part of the arm, the gripper and the held object clear
+of everything by default. Touching is permitted only through `contact(...)`,
+as a `with` scope (every move of that arm inside) or one move's `allow=`:
 
 ```python
-interpolate_anchor_joint_path(arm="left_arm", object_name=obj.id,
-                              anchor_name="lid_handle",
-                              joint_path={"lid_joint": (0.0, 1.4)}, steps=12)
+with contact(ARM, plate):                                       # fingers vs the plate (and what it sits on)
+    move_arm(ARM, g, straight_line=True, tcp_speed=0.02)
+move_arm(ARM, p, straight_line=True, allow=contact(ARM, rack, parts="held", floor=0.002))
 ```
 
-The lower-level `interpolate_anchor_to_anchor(arm, object_name, start_anchor,
-end_anchor, *, start_joint_config=None, end_joint_config=None,
-interpolate=False, steps=5)` does **not** commit — follow it with
-`update_object_joint_config(obj.id, {"lid_joint": 1.4})`, and note `steps` only
-applies with `interpolate=True` (the default is two discrete moves). A missed
-commit is an invisible bug: this skill passes, and the *next* skill's planner
-collides with a lid it believes is closed. Exact signatures: the manifest,
-`references/execution-functions.json`.
+`parts` picks which parts of the arm may come close: `"fingers"` (default),
+`"palm"`, `"gripper"`, `"held"`, `"arm"`, `"side"`, or a part name; `floor=` is
+how close (m) they still must stay. `only(obj)` / `only(obj, link)` limits a
+target to that object (or one link of it) alone. Keep scopes short and targets
+narrow; a refusal is usually a wrong target or approach, not a missing
+allowance.
+
+## Attach / release: the world is bookkeeping you keep
+
+Closing the gripper does not make the arm hold anything in the model. The
+booking is what keeps collision checking and the next skill's planning right:
+
+- **On pick**, right after the gripper closes: `attach(arm, obj,
+  snap_anchor="grasp")` — the grasp anchor booked exactly at the TCP (the
+  canonical grip). Without `snap_anchor` the object is booked where it hangs
+  relative to the TCP now.
+- **On place**: `release(arm, onto=(holder, "slot_5"))` opens the gripper and
+  books the object seated on the holder's anchor; add `settle=<Anchor|Pose>`
+  (and `settle_anchor=`) to book where it comes to rest.
+- `set_object_pose(obj, pose)` books an object somewhere without motion (a
+  perception correction, a person moved it); `seat(obj, holder, anchor)` books
+  a seating a person did.
+- Booking **asserts, it does not measure** — sim stays deterministic, but a
+  marginal real grasp still books clean. A green sim run is therefore not
+  evidence a grasp is safe; say so when relevant. Projects that need it compare
+  the booked pose against a fresh arm reading after the grasp.
+
+## Articulated objects (lids, drawers, doors)
+
+For a lid whose handle anchor travels with the articulation, follow the arc as
+one path; the World takes the final joint angle when the arm reaches it:
+
+```python
+move_path(ARM, sweep_anchor_steps(shaker, "lid_handle", "lid_joint", 0.0, 1.3, 13, 0.05))
+```
+
+`interp_anchor_steps(obj, a0, a1, joints, steps, tcp_speed)` moves between two
+anchors of the object as straight steps (a re-grip). Changing an articulation
+without motion is `set_articulation(obj, "open")` (a preset) or
+`set_articulation(obj, {"lid_joint": 1.3})`; a skill that moves a lid any other
+way must book the new angle, or the next skill plans around a lid it believes
+is closed.
 
 ## shared_state: cross-skill handoff for pick/place pairs
 
@@ -203,6 +211,11 @@ Escalation ladder, in order: `print_log` (always) → `send_slack` (notify) →
 until the operator resumes; supports `on_resume` callbacks). Retry without a
 verify step and cleanup is not a retry — it's the same failure twice.
 
+Catch specific errors, never bare `except`: a planner refusal
+(`WouldCollide`, `Unreachable`, ...) is raised before anything moved and will
+refuse again with the same inputs; retrying it is pointless. Real-hardware
+failures (`GraspFailed`, `ContactDetected`) are what a retry is for.
+
 ## SkillObject: the 12-float pose
 
 A `SkillObject` has `.id` (world instance id) and `.pose`, a 12-float list:
@@ -220,11 +233,13 @@ object frame moves the arm by the centroid offset — sim may tolerate it;
 hardware won't. Prefer anchors over raw pose math (`references/worlds-and-objects.md`,
 "The object frame is the `object` anchor").
 
-## modules.py layering
+## Shared code: skills/*.py, not modules.py
 
-The one-line star shim is the base case, but `modules.py` is also the
-sanctioned home for skill-local geometry/math helpers layered on top of the
-platform import (pose math, TCP offset transforms) — keeping `robotic_code.py`
-signature-clean for the platform's AST parse. Sibling skills may chain-shim
-(`from <sibling>.modules import *`) to share helpers; import a sibling's
-*public* skill function via `from <sibling>.robotic_code import <sibling>`.
+`modules.py` stays the one-line API import. Code several skills share —
+the project's motion helpers, constants, joint poses, rules — lives in modules
+next to the skill folders (`skills/utils.py`, `skills/cell.py`, ...) and is
+imported by name (`from cell import move`); the loader puts `skills/` on
+`sys.path`. Names starting with `_` are a module's internals. Keep
+`robotic_code.py` to the skill function and its signature (the platform's AST
+parse reads it). Import a sibling's *public* skill function via
+`from <sibling>.robotic_code import <sibling>`.

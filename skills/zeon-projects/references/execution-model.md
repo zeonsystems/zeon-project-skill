@@ -2,10 +2,11 @@
 
 > Hosted docs: [Authoring a workflow](https://readme.zeonsystems.app/docs/authoring-a-workflow.md) · [The workflow file](https://readme.zeonsystems.app/docs/workflows-json.md) — this file goes further than either.
 >
-> Note the one family that inverts the usual contract: the motion functions
-> (`list_object_motions` / `load_object_motion` / `play_object_motion`) **raise**
-> instead of returning a result dict, so an unguarded motion failure fails its
-> node by the rule below. See `references/motions.md`.
+> Note: every motion verb of the skill API v2 (`move_arm`, `move_arm_js`,
+> `move_relative`, `move_path`, ...) **raises** a `SkillError` subclass on
+> failure instead of returning a result dict, so an unguarded motion failure
+> fails its node by the rule below. The device verbs and `api_request` still
+> fail soft and return a dict to check.
 
 The runtime semantics below are not guessable from the file formats, and several
 are counter-intuitive. They determine whether the code you author does what the

@@ -58,7 +58,7 @@ epipette_10ul_<uuid>:
   number into a well letter.
 - **Well plates are keyed by well label** (`"A1"…"H12"`, rows A–H, columns
   1–12). The same string is the calibration key *and* the anchor name:
-  `load_object_anchor(obj.id, "A1")` pairs with `calibration["A1"]`. No numeric
+  `anchor(obj, "A1")` pairs with `calibration["A1"]`. No numeric
   conversion, ever.
 - **Calibration values are 2-element `[dx, dy]` lists in metres** (XY only —
   Z is never calibrated here), applied as `pos[0] += dx; pos[1] += dy` on top
