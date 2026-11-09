@@ -1,115 +1,90 @@
-# live_state.yaml — mutable per-world runtime state
+# live_state.yaml: mutable per-world runtime state
 
 > Hosted docs: [Building a world](https://readme.zeonsystems.app/docs/building-a-world.md) · [The world state file](https://readme.zeonsystems.app/docs/worlds-world-state-json.md)
 
-`worlds/<world_id>/live_state.yaml` is the mutable sibling of the frozen
-`world_state.json`: consumable counters, calibration offsets, and other
-per-object runtime facts. Liquid-handling skills read and write it constantly,
-and its conventions are easy to get wrong in ways that don't error — they
-pipette the wrong well or reuse a spent tip.
+`worlds/<world_id>/live_state.yaml` sits beside `world_state.json` and holds what
+changes at run time: tip pointers, calibration offsets, per-object facts. Skills read
+and write it through `get_world_state(object_id)` / `set_world_state(object_id,
+updates)`. Its mistakes do not error: they pipette the wrong well or reuse a tip.
 
-## Shape
+## Shape (version 2: seat-keyed)
+
+Calibration belongs to **where an object sits and what type it is**, so it is stored
+on the **holder**, per seat anchor, per occupant type:
 
 ```yaml
-version: 1
+version: 2
 objects:
-  <instance_id>:        # the world instance id (SkillObject.id) — NOT the display name
-    name: tipbox_10ul_1  # display name (informational)
-    type: tipbox_grey
-    ...per-object state...
+  wellplate_stand_1:                 # a holder (instance id)
+    type: wellplate_stand
+    seats:
+      top_center:                    # the seat anchor
+        wellplate_pcr:               # an occupant type allowed here
+          calibration_epipette_10ul: {A1: [0.003, -0.003], H12: [-0.0065, 0.013]}
+          depths_epipette_10ul: {aspirate: 0.014, dispense: 0.0145}
+        wellplate_96_deep: {}        # allowed, nothing taught yet
+  tipbox_holder_1:
+    seats:
+      top_center:
+        tipbox_10ul: {tip_index: 12, active: true, calibration_epipette_10ul: {"1": [0.018, 0.106]}}
+  epipette_10ul_1:                   # state that travels with the object stays on it
+    tcp_offset: [-0.1566, 0.0024, -0.0212]
 ```
 
-Three entry shapes you'll meet (arbitrary per-object keys are allowed):
+- **Seat keys** (stored on the seat for a seated object): keys starting
+  `calibration`, `depths_`, `attach_depths_`, `trim_`; `pipette_rpy`, `attach_rpy`,
+  `mc_xy_trim`, `tip_height`, `tip_count`; and the run-time `tip_index`, `active`.
+  Everything else (`tcp_offset`, `in_hand`, contents) stays on the object's own entry.
+- A seat exists because it is listed under the holder's `seats`; the types under it
+  are the types allowed there.
+- `version: 1` files (calibration on the object entry) are still read: a seat key
+  missing from the seat falls back to the object's entry. In version 2 the seat is
+  the only source.
 
-```yaml
-# Tip box
-tipbox_grey_<uuid>:
-  name: tipbox_10ul_1
-  type: tipbox_grey
-  active: true            # exactly ONE box active at a time
-  tip_index: 1            # 1-based — the NEXT tip to use (1..96)
-  calibration:
-    '1': [0.018, 0.106]   # keys "1".."96" (string ints, 1-BASED); values [dx, dy] metres
-    '96': [0.090, 0.028]
+## The API
 
-# Well plate
-wellplate_pcr_<uuid>:
-  name: wellplate_pcr_parts_1
-  type: wellplate_pcr
-  calibration:
-    A1: [0.003, -0.003]   # keys are WELL LABELS "A1".."H12" — identical to anchor names
-    H12: [-0.0065, 0.013]
+- **Key strictly by instance id** (`resolve(obj)` / `SkillObject.id`). A display
+  name reads `{}` (calibration silently falls back to zeros) and a write creates a
+  bogus entry. validate.py flags display-name literals.
+- `get_world_state(id)` for a seated object returns its own entry with the seat
+  keys taken from its seat on the holder. You do not address the holder yourself.
+- `set_world_state(id, updates)` shallow-merges: seat keys go to the seat, the rest
+  to the object. **Nested maps are replaced wholesale**:
+  `set_world_state(id, {"calibration_epipette_10ul": {"A1": [...]}})` drops every
+  other well. Read the whole map, change a copy, write it back.
+- A write that changes `tip_index` or `active` refreshes the canvas tip counts;
+  include them in the write that changes them.
+- No file locking: concurrent writers are last-writer-wins. Keep writes small and
+  sequential.
 
-# Pipette
-epipette_10ul_<uuid>:
-  name: epipette_10ul
-  type: epipette_10ul
-  tcp_offset: [-0.1566, 0.0024, -0.0212]   # fixed TCP→tip offset, 3-vector, metres
+Read idiom (uncalibrated entries are absent, not zero):
+
+```python
+cal = get_world_state(plate_id).get("calibration_epipette_10ul", {})
+dx, dy = cal.get(well, [0.0, 0.0])          # plate: "B3"
+dx, dy = cal.get(str(tip_index), [0.0, 0.0])  # tip box: str(1-based int)
 ```
 
-## Indexing conventions — get these exactly right
+Use the calibration key names the project's existing skills use.
 
-- **Tip boxes are 1-based.** `tip_index` starts at 1 and points at the *next*
-  tip; calibration keys are `"1"…"96"`. Advance with `tip_index + 1` and
-  **stop at 96 → hand off to the next rack** (mark it `active`, `tip_index: 1`).
-  **Never** use `% 96` wrap-around or 0-based indexing — some platform
-  docstrings show stale 0-based examples; the real files and every real skill
-  are 1-based. Tips are addressed by integer index only; never translate a tip
-  number into a well letter.
-- **Well plates are keyed by well label** (`"A1"…"H12"`, rows A–H, columns
-  1–12). The same string is the calibration key *and* the anchor name:
-  `load_object_anchor(obj.id, "A1")` pairs with `calibration["A1"]`. No numeric
-  conversion, ever.
-- **Calibration values are 2-element `[dx, dy]` lists in metres** (XY only —
-  Z is never calibrated here), applied as `pos[0] += dx; pos[1] += dy` on top
-  of the anchor/tip pose. Not `{x:…, y:…}` dicts, not 3-element.
+## Indexing conventions
 
-## The API — get_world_state / set_world_state
-
-- **Key strictly by instance id** (`SkillObject.id` / the world instance key).
-  A display name **silently returns `{}`** on read — calibration falls back to
-  zeros with no error — and on write it **creates a bogus new entry** instead
-  of updating the real one. validate.py flags display-name literals.
-- Canonical read idiom (the zero-fallback is load-bearing — uncalibrated
-  entries are absent, not zero):
-
-  ```python
-  cal = get_world_state(obj.id).get("calibration", {})
-  dx, dy = cal.get(str(tip_index), [0.0, 0.0])   # tip box: str(1-based int)
-  dx, dy = cal.get(well, [0.0, 0.0])             # plate: "B3"
-  ```
-
-- **Writes merge top-level keys only; nested maps are replaced wholesale.**
-  `set_world_state(id, {"calibration": {"A1": [.1, .2]}})` deletes every other
-  well's calibration. To edit one entry: read the whole map, mutate a copy,
-  write the whole map back. Safe partial updates are top-level scalars:
-  `set_world_state(tipbox_id, {"tip_index": tip_index + 1})`.
-- Writes that change `tip_index`/`active` also refresh the canvas tip-count
-  display — include them in the write that changes them.
-- There is **no file locking** — concurrent writers are last-writer-wins on
-  the whole file. Keep writes small, top-level, and sequential.
+- **Tip boxes are 1-based.** `tip_index` is the next tip, `1..96`; calibration keys
+  are `"1".."96"`. Advance with `+ 1` and at 96 hand off to the next box (`active`,
+  `tip_index: 1`). Never wrap with `% 96`, never index from 0.
+- **Plates are keyed by well label** (`"A1".."H12"`), the same string as the well's
+  anchor name: `anchor(plate_id, "A1")` pairs with `cal["A1"]`.
+- **Calibration values are `[dx, dy]` in metres**, XY only, added to the anchor or
+  tip position.
 
 ## Lifecycle
 
-- **State persists across runs.** There is no run-start reset: a protocol that
-  consumes tips keeps advancing `tip_index` run after run until the operator
-  resets the box in the app ("tip box replaced" → `tip_index: 1`, `active`
-  flipped). Never assume a fresh box.
-- **Sim and real can share the same file** when they load the same world — a
-  sim run that advances `tip_index` moves the pointer a real run will read.
-  Don't treat sim writes as isolated.
-- **Calibration data is provisioned externally** (hand-edited / calibration
-  tooling). Skills *read* it; write calibration only when the user explicitly
-  asks, respecting the wholesale-replace rule.
-
-## Established idioms
-
-- **Tip advancement** (attach skills): read the `active` box → use
-  `tip_index` → after seating, `set_world_state(box_id, {"tip_index": n + 1})`;
-  at 96, activate the next box in the project's tip-box registry with
-  `tip_index: 1`; when the last box is spent, escalate to the operator
-  (`references/patterns.md` reliability ladder) and reset.
-- **Aspirate/dispense are read-only** — they apply calibration but never write
-  state.
-- **`tcp_offset`** on a pipette entry is read as the fixed TCP→tip transform
-  (guard with `if stored is not None and len(stored) == 3`).
+- State persists across runs; nothing resets it at run start. A protocol that uses
+  tips keeps advancing until the operator resets the box in the app.
+- Sim and real runs that load the same world share the file.
+- Swapping the type at a seat keeps every type's calibration; a type that comes back
+  finds its table unchanged (its run-time state is reset: it is a new unit).
+- `despawn` drops the object's live state from memory only; the world's files on
+  disk are not edited by a run.
+- Calibration is taught with the platform's tools. Skills read it; write calibration
+  only when the user asks, respecting the wholesale-replace rule.
