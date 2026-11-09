@@ -36,6 +36,30 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from cloud_delta import build_opener, read_config, resolve_token  # noqa: E402
 
 
+def _grasp(description) -> dict | None:
+    """The grasp an anchor's description states (`... | grasp: width <w> m[, standoff <s> m]
+    [, gripper_variant <v>]`), as {width, standoff, gripper_variant}; None when it states none
+    or the segment does not parse (validate.py reports that)."""
+    if not isinstance(description, str):
+        return None
+    hits = [s.strip() for s in description.split(" | ") if s.strip().startswith("grasp:")]
+    if len(hits) != 1:
+        return None
+    out: dict = {"standoff": 0.05, "gripper_variant": "stock"}
+    for item in hits[0][len("grasp:"):].strip().split(", "):
+        key, _, value = item.partition(" ")
+        try:
+            if key in ("width", "standoff") and value.endswith(" m"):
+                out[key] = float(value[:-2])
+            elif key == "gripper_variant" and value:
+                out[key] = value
+            else:
+                return None
+        except ValueError:
+            return None
+    return out if "width" in out else None
+
+
 def _get(url: str, token: str) -> bytes:
     req = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}"})
     with build_opener().open(req, timeout=30) as resp:
@@ -128,7 +152,7 @@ def main(argv: list[str]) -> int:
                         "description": v.get("description", ""),
                         "xyz": (v.get("link_T_anchor") or {}).get("xyz"),
                         "wxyz": (v.get("link_T_anchor") or {}).get("wxyz"),
-                        **({"grasp": v["grasp"]} if isinstance(v.get("grasp"), dict) else {}),
+                        **({"grasp": g} if (g := _grasp(v.get("description"))) else {}),
                     }
                     for a, v in anchors.items() if isinstance(v, dict)
                 }

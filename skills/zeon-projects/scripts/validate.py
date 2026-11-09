@@ -52,8 +52,27 @@ INPUT_NAME_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_]*$")
 CANVAS_REF_RE = re.compile(r"^canvas/[a-z0-9_]+\.tsx$")
 CANVAS_STEM_RE = re.compile(r"^[a-z0-9_]+$")
 UUID_RE = re.compile(r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
-TAG_ANCHOR_RE = re.compile(r"^tag_\d+$")        # legacy inline fiducial, an anchor
-TAG_UNIT_RE = re.compile(r"^[a-z][a-z0-9_-]*$")  # tag_collections/<handle>.yaml
+TAG_ANCHOR_RE = re.compile(r"^tag_\d+$")        # a fiducial: lives in a unit's tags.yaml only
+TAG_UNIT_RE = re.compile(r"^[a-z][a-z0-9_-]{0,63}$")  # units/<handle>/tags.yaml
+
+# The object-model schema (zeon_robotics.object_models.schema): the loader
+# refuses any key outside these, so the object (and the world using it) fails.
+MODEL_TOP_KEYS = {"urdf", "profile", "parts", "articulations", "anchors", "spherization"}
+MODEL_ANCHOR_KEYS = {"parent_link", "description", "link_T_anchor"}
+MODEL_PART_KEYS = {"links", "description"}
+MODEL_ARTICULATION_KEYS = {"joints", "description"}
+MODEL_TEMPLATES = {None, "arm", "gripper", "camera"}
+# Anchor fields the schema removed; their numbers now live in the description.
+REMOVED_ANCHOR_FIELDS = {"grasp", "viewpoint", "sampling", "prior_weights"}
+GRASP_FORMAT = "grasp: width <w> m[, standoff <s> m][, gripper_variant <variant>]"
+_GRASP_NUM = r"-?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?"
+_GRASP_ITEMS = {"width": re.compile(rf"({_GRASP_NUM}) m"), "standoff": re.compile(rf"({_GRASP_NUM}) m"),
+                "gripper_variant": re.compile(r"[A-Za-z0-9_-]+")}
+MOTIONS_FORMAT = "motions/1"
+MOTION_KEYS = {"parent_link", "description", "keyposes", "gripper_variant"}
+KEYPOSE_KEYS = {"link_T_tcp", "t", "seed", "gripper"}
+TAGS_FORMAT = "tag_calibration/3"
+TAG_FAMILY = "DICT_APRILTAG_36h11"
 
 VALID_NODE_TYPES = {"start", "end", "skill", "loop", "conditional"}
 VALID_EDGE_CONDITIONS = {
@@ -936,12 +955,8 @@ def _check_inputs(inputs: Any, where: str, report: Report) -> tuple[set[str], se
         elif itype not in INPUT_TYPES:
             report.err(where, f"inputs[{i}].type invalid: {itype!r} "
                               f"(expected one of {sorted(INPUT_TYPES)})")
-        dv = inp.get("defaultValue", inp.get("default_value"))
-        if itype == "string" and isinstance(dv, str) and UUID_RE.search(dv):
-            report.warn(where, f"inputs[{i}] ({name!r}): UUID-shaped defaultValue on a "
-                               "string input — at run time any UUID-shaped string is "
-                               "auto-treated as a world object reference and a lookup "
-                               "miss aborts the skill")
+        # No UUID-shape check: a $input value is an object reference only when
+        # its input is declared "object"; a declared string passes through as is.
     return names, array_names
 
 
@@ -1265,6 +1280,7 @@ def validate_objects(root: Path, report: Report) -> int:
 
         urdf = obj_dir / f"{name}.urdf"
         link_names: set[str] = set()
+        moving_joints = False
         if not urdf.is_file():
             report.err(f"{where}/{name}.urdf", "missing")
         else:
@@ -1275,6 +1291,7 @@ def validate_objects(root: Path, report: Report) -> int:
                 elif robot.get("name") != name:
                     report.warn(str(urdf), f"<robot name={robot.get('name')!r}> != folder name {name!r}")
                 link_names = {l.get("name", "") for l in robot.findall("link")}
+                moving_joints = any(j.get("type") not in (None, "fixed") for j in robot.findall("joint"))
             except ET.ParseError as exc:
                 report.err(str(urdf), f"invalid XML: {exc}")
 
@@ -1285,149 +1302,238 @@ def validate_objects(root: Path, report: Report) -> int:
         data = _load_yaml(model, report)
         if not isinstance(data, dict):
             continue
-        if "urdf" not in data:
-            report.err(str(model), "missing 'urdf' field")
-        if "default" not in (data.get("articulations") or {}):
-            report.err(str(model), "articulations.default is required")
-        anchors = data.get("anchors") or {}
-        if "object" not in anchors:
-            report.err(str(model), "an anchor named 'object' is required")
-        for aname, anchor in anchors.items():
-            if not isinstance(anchor, dict):
-                report.err(str(model), f"anchor {aname!r} is not a mapping")
-                continue
-            parent = anchor.get("parent_link")
-            if link_names and isinstance(parent, str) and parent not in link_names:
-                report.err(str(model), f"anchor {aname!r}: parent_link {parent!r} is not a "
-                                       f"URDF link (has: {', '.join(sorted(link_names))})")
-            if link_names and aname in link_names:
-                report.warn(str(model), f"anchor {aname!r} collides with a URDF link name")
-            lta = anchor.get("link_T_anchor")
-            if not isinstance(lta, dict) or "xyz" not in lta or "wxyz" not in lta:
-                report.err(str(model), f"anchor {aname!r}: link_T_anchor needs xyz and wxyz")
-            else:
-                wxyz = lta.get("wxyz")
-                if isinstance(wxyz, list) and len(wxyz) == 4:
-                    norm2 = sum(float(x) * float(x) for x in wxyz if isinstance(x, (int, float)))
-                    if norm2 < 1e-6:
-                        report.err(str(model), f"anchor {aname!r}: wxyz is (near-)zero — "
-                                               "placeholder quaternion, not a rotation")
-
-        _check_motions(model, data, link_names, report)
-        _check_tag_collections(obj_dir, name, anchors, link_names, report)
+        _check_object_model(model, data, link_names, moving_joints, report)
+        _check_motions(obj_dir / "motions.yaml", link_names, report)
+        _check_unit_tags(obj_dir, name, link_names, report)
     return count
 
 
-def _check_motions(model: Path, data: dict, link_names: set[str], report: Report) -> None:
-    """Loader-fatal rules for the optional `motions:` block on an object model.
+def _check_object_model(model: Path, data: dict, link_names: set[str],
+                        moving_joints: bool, report: Report) -> None:
+    """The loader's schema: an unknown key, a removed anchor field or a tag
+    anchor makes it refuse the object, and with it the world that uses it."""
+    where = str(model)
+    for key in data:
+        if key == "motions":
+            report.err(where, "unknown key 'motions' — the loader refuses this object; motions "
+                              f"live in motions.yaml beside the model (format {MOTIONS_FORMAT})")
+        elif key not in MODEL_TOP_KEYS:
+            report.err(where, f"unknown key {key!r} — the loader refuses this object (it reads "
+                              f"only {', '.join(sorted(MODEL_TOP_KEYS))}; app data goes under profile:)")
+    if "urdf" not in data:
+        report.err(where, "missing 'urdf' field")
+    profile = data.get("profile")
+    if not isinstance(profile, dict):
+        report.err(where, "missing 'profile' — every object model declares its kind; add "
+                          "`profile: {template: null}` for a plain object")
+    elif "template" not in profile:
+        report.err(where, "profile is missing the required 'template' key")
+    elif profile.get("template") not in MODEL_TEMPLATES:
+        report.err(where, f"profile.template {profile.get('template')!r} is not one of "
+                          "null, arm, gripper, camera")
+    for section, keys in (("parts", MODEL_PART_KEYS), ("articulations", MODEL_ARTICULATION_KEYS)):
+        for pname, entry in (data.get(section) or {}).items():
+            if isinstance(entry, dict):
+                for k in entry:
+                    if k not in keys:
+                        report.err(where, f"unknown key '{section}.{pname}.{k}' — the loader "
+                                          "refuses this object")
+    if moving_joints and "default" not in (data.get("articulations") or {}):
+        report.err(where, "articulations.default is required (the URDF has moving joints)")
+    anchors = data.get("anchors") or {}
+    if "object" not in anchors:
+        report.err(where, "an anchor named 'object' is required")
+    tags = sorted(a for a in anchors if TAG_ANCHOR_RE.match(str(a)))
+    if tags:
+        report.err(where, f"anchors {', '.join(tags)} are tags — the loader refuses tag anchors in "
+                          "the object model; a unit's tags live in its tags.yaml "
+                          f"({TAGS_FORMAT}): units/<handle>/tags.yaml")
+    for aname, anchor in anchors.items():
+        if not isinstance(anchor, dict):
+            report.err(where, f"anchor {aname!r} is not a mapping")
+            continue
+        for k in anchor:
+            if k in REMOVED_ANCHOR_FIELDS:
+                report.err(where, f"anchor {aname!r}: field {k!r} was removed from the schema "
+                                  "(the loader refuses it) — write it into the description, "
+                                  f"e.g. '... | {GRASP_FORMAT}'")
+            elif k not in MODEL_ANCHOR_KEYS:
+                report.err(where, f"anchor {aname!r}: unknown key {k!r} — the loader refuses "
+                                  "this object")
+        msg = _grasp_problem(anchor.get("description"))
+        if msg:
+            report.err(where, f"anchor {aname!r}: {msg} — anchor() raises when a skill reads it")
+        parent = anchor.get("parent_link")
+        if link_names and isinstance(parent, str) and parent not in link_names:
+            report.err(where, f"anchor {aname!r}: parent_link {parent!r} is not a "
+                              f"URDF link (has: {', '.join(sorted(link_names))})")
+        if link_names and aname in link_names:
+            report.warn(where, f"anchor {aname!r} collides with a URDF link name")
+        lta = anchor.get("link_T_anchor")
+        if not isinstance(lta, dict) or "xyz" not in lta or "wxyz" not in lta:
+            report.err(where, f"anchor {aname!r}: link_T_anchor needs xyz and wxyz")
+        else:
+            wxyz = lta.get("wxyz")
+            if isinstance(wxyz, list) and len(wxyz) == 4:
+                norm2 = sum(float(x) * float(x) for x in wxyz if isinstance(x, (int, float)))
+                if norm2 < 1e-6:
+                    report.err(where, f"anchor {aname!r}: wxyz is (near-)zero — "
+                                      "placeholder quaternion, not a rotation")
+
+
+def _grasp_problem(description: Any) -> Optional[str]:
+    """Why an anchor description's `grasp:` segment would not parse (None: fine or absent)."""
+    if not isinstance(description, str):
+        return None
+    segs = [seg.strip() for seg in description.split(" | ")]
+    hits = [seg for seg in segs if seg.startswith("grasp:")]
+    if len(hits) > 1:
+        return f"the description states a grasp {len(hits)} times; it may state one"
+    if not hits:
+        return None
+    body = hits[0][len("grasp:"):].strip()
+    got: set[str] = set()
+    for item in body.split(", ") if body else []:
+        key, _, value = item.partition(" ")
+        pat = _GRASP_ITEMS.get(key)
+        if pat is None or not pat.fullmatch(value) or key in got:
+            return f"grasp segment {hits[0]!r} does not read as {GRASP_FORMAT!r} (at {item!r})"
+        got.add(key)
+    if "width" not in got:
+        return f"grasp segment {hits[0]!r} states no width ({GRASP_FORMAT!r})"
+    return None
+
+
+def _check_motions(path: Path, link_names: set[str], report: Report) -> None:
+    """Loader-fatal rules for an object's motions.yaml (format motions/1).
 
     Motions are recorded by hand-guiding an arm, not authored, so these mostly
     catch a hand-edit or a bad merge. Unlike anchors, a motion name may collide
     with a URDF link: motions are not injected into the kinematic model.
     """
-    motions = data.get("motions")
-    if motions is None:
+    if not path.is_file():
         return
+    data = _load_yaml(path, report)
+    if not isinstance(data, dict):
+        return
+    where = str(path)
+    if data.get("format") != MOTIONS_FORMAT:
+        report.err(where, f"format {data.get('format')!r}, expected {MOTIONS_FORMAT!r}")
+    unknown = sorted(k for k in data if k not in {"format", "motions"})
+    if unknown:
+        report.err(where, f"keys outside {MOTIONS_FORMAT}: {unknown}")
+    motions = data.get("motions") or {}
     if not isinstance(motions, dict):
-        report.err(str(model), "'motions' must be a mapping of name -> motion")
+        report.err(where, "'motions' must be a mapping of name -> motion")
         return
     for mname, motion in motions.items():
         if not isinstance(motion, dict):
-            report.err(str(model), f"motion {mname!r} is not a mapping")
+            report.err(where, f"motion {mname!r} is not a mapping")
             continue
+        extra = sorted(k for k in motion if k not in MOTION_KEYS)
+        if extra:
+            report.err(where, f"motion {mname!r}: keys outside {MOTIONS_FORMAT}: {extra}")
         parent = motion.get("parent_link")
         if not isinstance(parent, str):
-            report.err(str(model), f"motion {mname!r}: parent_link is required")
+            report.err(where, f"motion {mname!r}: parent_link is required")
         elif link_names and parent not in link_names:
-            report.err(str(model), f"motion {mname!r}: parent_link {parent!r} is not a "
-                                   f"URDF link (has: {', '.join(sorted(link_names))})")
+            report.err(where, f"motion {mname!r}: parent_link {parent!r} is not a "
+                              f"URDF link (has: {', '.join(sorted(link_names))})")
         if not isinstance(motion.get("description"), str):
-            report.warn(str(model), f"motion {mname!r}: no description — it is what tells "
-                                    "the next reader which direction the path goes in")
+            report.warn(where, f"motion {mname!r}: no description — it is what tells "
+                               "the next reader which direction the path goes in")
         keyposes = motion.get("keyposes")
         if not isinstance(keyposes, list) or len(keyposes) < 2:
-            report.err(str(model), f"motion {mname!r}: needs at least two keyposes "
-                                   "(a single pose is an anchor)")
+            report.err(where, f"motion {mname!r}: needs at least two keyposes "
+                              "(a single pose is an anchor)")
             continue
         prev_t = None
         for i, kp in enumerate(keyposes):
             at = f"motion {mname!r} keypose {i}"
             if not isinstance(kp, dict):
-                report.err(str(model), f"{at}: not a mapping")
+                report.err(where, f"{at}: not a mapping")
                 continue
             t = kp.get("t")
             if not isinstance(t, (int, float)) or isinstance(t, bool):
-                report.err(str(model), f"{at}: 't' (seconds from start) is required")
+                report.err(where, f"{at}: 't' (seconds from start) is required")
             else:
                 if t < 0:
-                    report.err(str(model), f"{at}: t={t} is negative")
+                    report.err(where, f"{at}: t={t} is negative")
                 if prev_t is not None and t < prev_t:
-                    report.err(str(model), f"{at}: t={t} goes backwards (previous {prev_t})")
+                    report.err(where, f"{at}: t={t} goes backwards (previous {prev_t})")
                 prev_t = t
             ltt = kp.get("link_T_tcp")
             if not isinstance(ltt, dict) or "xyz" not in ltt or "wxyz" not in ltt:
-                report.err(str(model), f"{at}: link_T_tcp needs xyz and wxyz")
+                report.err(where, f"{at}: link_T_tcp needs xyz and wxyz")
             grip = kp.get("gripper")
             if isinstance(grip, (int, float)) and not isinstance(grip, bool) and grip < 0:
-                report.err(str(model), f"{at}: gripper={grip} is negative")
+                report.err(where, f"{at}: gripper={grip} is negative")
 
 
-def _check_tag_collections(obj_dir: Path, name: str, anchors: dict,
-                           link_names: set[str], report: Report) -> None:
-    """Rules for the optional `tag_collections/` sidecar folder.
-
-    An object records its fiducial tags EITHER inline (anchors named `tag_<id>`)
-    or as per-unit collection files — never both. The platform refuses an object
-    carrying both rather than silently merging them.
-    """
-    tag_dir = obj_dir / "tag_collections"
-    if not tag_dir.is_dir():
-        return
-    inline = sorted(a for a in anchors if TAG_ANCHOR_RE.match(str(a)))
-    files = sorted(p for p in tag_dir.iterdir()
-                   if p.is_file() and p.suffix in {".yaml", ".yml"})
-    valid = [p for p in files if TAG_UNIT_RE.match(p.stem)]
-    for p in files:
-        if p not in valid:
-            report.warn(f"objects/{name}/tag_collections/{p.name}",
-                        f"handle {p.stem!r} is not [a-z][a-z0-9_-]* — the loader ignores "
-                        "this file")
-    if inline and valid:
-        report.err(f"objects/{name}", f"carries both inline tag anchors ({', '.join(inline)}) "
-                                      f"and tag_collections/ — the loader refuses this object "
-                                      "rather than merging; use one encoding or the other")
-    for path in valid:
+def _check_unit_tags(obj_dir: Path, name: str, link_names: set[str], report: Report) -> None:
+    """A unit's fiducial tags: `tags.yaml` beside the model (the entry's one
+    unit) or `units/<handle>/tags.yaml` (format tag_calibration/3). These are
+    measured exports, never hand-authored; the checks catch a bad copy."""
+    legacy = obj_dir / "tag_collections"
+    if legacy.is_dir():
+        report.warn(f"objects/{name}/tag_collections",
+                    "the platform no longer reads tag_collections/ — a unit's tags are "
+                    f"units/<handle>/tags.yaml ({TAGS_FORMAT})")
+    files: list[Path] = []
+    if (obj_dir / "tags.yaml").is_file():
+        files.append(obj_dir / "tags.yaml")
+    units = obj_dir / "units"
+    if units.is_dir():
+        for d in sorted(p for p in units.iterdir() if p.is_dir()):
+            if not (d / "tags.yaml").is_file():
+                continue
+            if not TAG_UNIT_RE.match(d.name):
+                report.warn(f"objects/{name}/units/{d.name}",
+                            f"handle {d.name!r} is not [a-z][a-z0-9_-]* — the loader ignores this unit")
+                continue
+            files.append(d / "tags.yaml")
+    for path in files:
+        rel = str(path.relative_to(obj_dir.parent.parent))
         doc = _load_yaml(path, report)
-        rel = f"objects/{name}/tag_collections/{path.name}"
         if not isinstance(doc, dict):
             continue
-        schema = doc.get("schema")
-        if schema is not None and schema != "tag_collection/v1":
-            report.err(rel, f"schema {schema!r} must be exactly 'tag_collection/v1'")
-        if doc.get("object") is None:
-            report.err(rel, "'object' (the object this belongs to) is required")
-        family = doc.get("family")
-        if family is not None and family != "apriltag_36h11":
-            report.err(rel, f"family {family!r} is rejected at load — 'apriltag_36h11' is the "
-                            "only accepted value")
-        size = doc.get("size_m")
-        if size is not None and (not isinstance(size, (int, float))
-                                 or isinstance(size, bool) or size <= 0):
-            report.err(rel, f"size_m {size!r} must be a positive number (metres)")
-        tags = doc.get("tags")
-        if not isinstance(tags, dict) or not tags:
-            report.err(rel, "'tags' is required and needs at least one entry")
+        if doc.get("format") != TAGS_FORMAT:
+            report.err(rel, f"format {doc.get('format')!r}, expected {TAGS_FORMAT!r}")
+        if doc.get("joints") != {}:
+            report.err(rel, "'joints' must be {} — the joints are the URDF's")
+        if "object_model" not in doc:
+            report.err(rel, "missing 'object_model' (the object-model file these tags were measured on)")
+        types = doc.get("tag_types") or {}
+        anchors = doc.get("anchors")
+        if not isinstance(anchors, dict) or not anchors:
+            report.err(rel, "no tags — a unit's file must define at least one")
             continue
-        for tid, tag in tags.items():
+        for tname, tag in anchors.items():
+            if not TAG_ANCHOR_RE.match(str(tname)):
+                report.err(rel, f"anchor {tname!r}: expected 'tag_<id>'")
             if not isinstance(tag, dict):
-                report.err(rel, f"tag {tid!r} is not a mapping")
+                report.err(rel, f"{tname}: not a mapping")
                 continue
             parent = tag.get("parent_link")
             if link_names and isinstance(parent, str) and parent not in link_names:
-                report.err(rel, f"tag {tid!r}: parent_link {parent!r} is not a URDF link")
-            ltt = tag.get("link_T_tag")
-            if not isinstance(ltt, dict) or "xyz" not in ltt or "wxyz" not in ltt:
-                report.err(rel, f"tag {tid!r}: link_T_tag needs xyz and wxyz")
+                report.err(rel, f"{tname}: parent_link {parent!r} is not a URDF link")
+            lta = tag.get("link_T_anchor")
+            if not isinstance(lta, dict) or "xyz" not in lta or "wxyz" not in lta:
+                report.err(rel, f"{tname}: link_T_anchor needs xyz and wxyz")
+            ttype = tag.get("tag_type")
+            if ttype is not None and ttype not in types:
+                report.err(rel, f"{tname}: tag_type {ttype!r} is not defined in tag_types")
+        for tt, spec in types.items():
+            if not isinstance(spec, dict):
+                continue
+            fam = spec.get("family", TAG_FAMILY)
+            if fam != TAG_FAMILY:
+                report.err(rel, f"tag_types.{tt}: family {fam!r} — {TAG_FAMILY!r} is the only "
+                                "supported family (others go undetected)")
+            size = spec.get("nominal_size_m")
+            if size is not None and (not isinstance(size, (int, float)) or isinstance(size, bool)
+                                     or size <= 0):
+                report.err(rel, f"tag_types.{tt}: nominal_size_m {size!r} must be a positive number")
 
 
 # ---------------------------------------------------------------------------

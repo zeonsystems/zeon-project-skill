@@ -56,26 +56,32 @@ EXPECTED_BROKEN = [
     "names no declared workflow input",         # collection source
     "loop node_id 'fill-loop'",                 # identifier-unsafe loop id
     "'default' edge out of a skill node",
-    "UUID-shaped defaultValue",
     # canvas
     "filename stem must match",
     "import of 'axios'",
     # input presets
     "inputs/bad.json",                          # malformed preset (platform skips silently)
     "matches no declared workflow input",
-    # objects: motions
+    # objects: motions.yaml (motions/1)
     "parent_link 'nonexistent_link' is not a URDF link",
     "needs at least two keyposes",
     "goes backwards",
     "gripper=-0.01 is negative",
     "no description",                           # motion without a description (warning)
-    # objects: tag collections
-    "carries both inline tag anchors",          # inline tag_<id> + tag_collections/
-    "must be exactly 'tag_collection/v1'",
-    "'apriltag_36h11' is the only accepted value",
-    "size_m -0.02 must be a positive number",
-    "tag 3: link_T_tag needs xyz and wxyz",
-    "the loader ignores this file",             # non-conforming unit handle (warning)
+    # objects: the object-model schema (the loader refuses the object)
+    "unknown key 'motions'",                    # motions moved to motions.yaml
+    "missing 'profile'",
+    "the loader refuses tag anchors",            # tag_7 in the model
+    "field 'grasp' was removed from the schema",
+    "does not read as 'grasp: width",           # malformed grasp segment in a description
+    # objects: a unit's tags.yaml (tag_calibration/3)
+    "expected 'tag_calibration/3'",
+    "'joints' must be {}",
+    "is the only supported family",
+    "nominal_size_m -0.02 must be a positive number",
+    "tag_3: link_T_anchor needs xyz and wxyz",
+    "the loader ignores this unit",             # non-conforming unit handle (warning)
+    "no longer reads tag_collections/",         # legacy folder (warning)
     # project.json
     "active_workflow 'ghost_flow'",
 ]
@@ -145,6 +151,9 @@ def main() -> int:
              + "\n\nvalidator output:\n" + json.dumps(result, indent=2))
     if result["ok"]:
         fail("broken fixture unexpectedly passed")
+    # A declared string input passes through as is, UUID-shaped or not (bad_flow's 'items').
+    if "UUID" in blob:
+        fail("a UUID-shaped default on a declared string input must not be flagged")
     print(f"ok: broken fixture reports all {len(EXPECTED_BROKEN)} planted defects "
           f"({len(result['errors'])} errors, {len(result['warnings'])} warnings)")
 

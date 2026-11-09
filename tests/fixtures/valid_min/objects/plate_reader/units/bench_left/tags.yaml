@@ -1,0 +1,15 @@
+format: tag_calibration/3
+mode: tags
+object_model: ../../plate_reader.object_model.yaml
+joints: {}
+tag_types:
+  apriltag36h11_20mm:
+    family: DICT_APRILTAG_36h11
+    nominal_size_m: 0.02
+anchors:
+  tag_14:
+    parent_link: body
+    tag_type: apriltag36h11_20mm
+    link_T_anchor:
+      xyz: [0.031, 0.0, 0.048]
+      wxyz: [0.5, -0.5, 0.5, 0.5]
