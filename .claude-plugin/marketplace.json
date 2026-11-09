@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "Marketplace for zeon-project-skill. Install with `/plugin marketplace add zeonsystems/zeon-project-skill` then `/plugin install zeon-project-skill@zeon`.",
-    "version": "0.2.0"
+    "version": "0.3.0"
   },
   "plugins": [
     {
