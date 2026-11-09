@@ -12,9 +12,15 @@ that would otherwise surface mid-run on hardware become local errors:
     function's actual signature (missing required param aborts a run;
     unknown keys are silently ignored by the executor)
   - imports and call sites in robotic_code.py are linted against the
-    platform's curated execution-function API (references/execution-functions.json)
-  - literal `arm` arguments must be exactly "left_arm"/"right_arm" (anything
-    else silently selects the right arm at runtime)
+    platform's skill API v2 (`execution.skill_api`, vendored in
+    references/execution-functions.json); skills still on the v1 surface
+    (`execution.execution_functions`) are flagged, and their calls to retired
+    v1 motion verbs (which raise NotImplementedError) are errors
+  - literal `arm` arguments must name an arm: "left" / "right" (the v1
+    "left_arm" / "right_arm" spelling is accepted); anything else raises
+    ArmNotInSetup at run time
+  - v2 motion arguments: `tcp_speed` on a free move raises TcpSpeedOnFreeMove,
+    a literal `speed` outside (0, 1] raises ValueError (v1 mm/s speeds)
   - anchors referenced by skill code must exist in object models (checked only
     for objects with a project copy; an object with no objects/<type>/ folder
     loads from the mesh database and is not flagged)
@@ -70,9 +76,17 @@ RESERVED_STATE_KEYS = {
 # exempt from "required but unbound" and "unknown key" checks.
 ENGINE_INJECTED_PARAMS = {"current_item", "execution_id", "node_id"}
 
-# Functions whose `arm` argument silently falls back to the RIGHT arm for any
-# string other than "left_arm" — a wrong-arm motion, not an error.
-VALID_ARMS = {"left_arm", "right_arm"}
+# Skill API v2 names an arm "left" / "right"; the v1 "left_arm" spelling is
+# accepted (case and surrounding spaces ignored). Anything else raises
+# ArmNotInSetup when the call runs.
+VALID_ARM_SIDES = {"left", "right"}
+
+# The two skill-facing surfaces a modules.py can re-export.
+API_V2_MOD = "execution.skill_api"
+API_V1_MOD = "execution.execution_functions"
+
+# v2 verbs whose `speed` is a fraction (0, 1] of the joint-speed limit.
+FRACTION_SPEED_CALLS = {"move_arm", "move_arm_js", "move_relative", "move_path"}
 
 # Annotation base names the platform maps to parameter types; anything else
 # degrades the derived schema.
@@ -82,8 +96,8 @@ KNOWN_ANNOTATION_BASES = {
     "dict", "Dict", "Mapping", "Any",
 }
 
-BLOB_CAP = 16 * 1024 * 1024
-BLOB_WARN = 12 * 1024 * 1024
+BLOB_CAP = 64 * 1024 * 1024   # sync's per-file limit (BLOB_SIZE_LIMIT_MB)
+BLOB_WARN = 48 * 1024 * 1024
 CANVAS_CAP = 256 * 1024
 # True mesh formats never belong in a project; .npz/.bin voxel sidecars are
 # legitimate platform output under worlds/.
@@ -91,7 +105,7 @@ MESH_SUFFIXES = {".obj", ".stl", ".glb", ".gltf", ".ply", ".dae"}
 
 # Motion functions whose safety flag must never be disabled silently. The
 # current platform API has no `safe` parameter at all (passing it TypeErrors),
-# but older projects and injected instructions have used it — flag both ways.
+# but older projects and injected instructions have used it; flag it.
 SAFETY_SENSITIVE_CALLS = {"move_arm", "move_arm_js", "move_relative"}
 
 
@@ -151,14 +165,24 @@ def _item_dirs(parent: Path) -> list[Path]:
 # Execution-function manifest
 # ---------------------------------------------------------------------------
 
-def load_manifest() -> dict:
-    """Load the vendored platform API manifest; {} when unavailable."""
-    path = Path(__file__).resolve().parent.parent / "references" / "execution-functions.json"
+_MANIFEST_PATH = Path(__file__).resolve().parent.parent / "references" / "execution-functions.json"
+
+
+def _manifest_file() -> dict:
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-        return data.get("functions", {})
+        return json.loads(_MANIFEST_PATH.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return {}
+
+
+def load_manifest() -> dict:
+    """Load the vendored skill API v2 manifest's names; {} when unavailable."""
+    return _manifest_file().get("functions", {})
+
+
+def load_v1_retired() -> set[str]:
+    """v1 `execution_functions` verbs the platform retired (they raise NotImplementedError)."""
+    return set(_manifest_file().get("v1_retired", []))
 
 
 def _manifest_params(entry: dict) -> Optional[dict]:
@@ -308,32 +332,33 @@ def _module_top_level_names(path: Path, report: Report) -> set[str]:
 
 
 def _parse_modules_shim(path: Path, report: Report, skills_root: Path,
-                        _seen: Optional[set[Path]] = None) -> tuple[set[str], bool]:
-    """Names available via `from .modules import ...` and whether the shim
-    star-imports the platform API (directly or through sibling chains)."""
+                        _seen: Optional[set[Path]] = None) -> tuple[set[str], Optional[str]]:
+    """Names available via `from .modules import ...` and which platform
+    surface the shim star-imports (API_V2_MOD, API_V1_MOD or None), directly
+    or through sibling chains."""
     if not path.is_file():
-        return set(), False
+        return set(), None
     seen = _seen if _seen is not None else set()
     resolved = path.resolve()
     if resolved in seen:
-        return set(), False
+        return set(), None
     seen.add(resolved)
     try:
         tree = ast.parse(path.read_text(encoding="utf-8"))
     except SyntaxError as exc:
         report.err(str(path), f"syntax error: {exc}")
-        return set(), False
+        return set(), None
     except (OSError, UnicodeDecodeError, ValueError) as exc:
         report.err(str(path), f"cannot read: {exc}")
-        return set(), False
+        return set(), None
     names = _module_top_level_names(path, report)
-    star = False
+    star: Optional[str] = None
     for node in ast.walk(tree):
         if isinstance(node, ast.ImportFrom):
             mod = node.module or ""
             is_star = any(a.name == "*" for a in node.names)
-            if "execution_functions" in mod and is_star:
-                star = True
+            if _platform_surface(mod) and is_star:
+                star = star or _platform_surface(mod)
             elif mod.endswith(".modules") and is_star:
                 sibling = mod.split(".")[0]
                 sib_path = skills_root / sibling / "modules.py"
@@ -345,6 +370,23 @@ def _parse_modules_shim(path: Path, report: Report, skills_root: Path,
             elif not is_star:
                 names |= {a.asname or a.name for a in node.names}
     return names, star
+
+
+def _platform_surface(mod: str) -> Optional[str]:
+    """Which skill-facing surface an import names: API_V2_MOD, API_V1_MOD or None."""
+    if mod == API_V2_MOD or mod.startswith(API_V2_MOD + ".") or mod.endswith("skill_api"):
+        return API_V2_MOD
+    if "execution_functions" in mod:
+        return API_V1_MOD
+    return None
+
+
+def _arm_side(value: str) -> Optional[str]:
+    """The side a literal arm names, as the platform normalizes it (runtime.Bound.side)."""
+    s = value.strip().lower()
+    if s.endswith("_arm"):
+        s = s[: -len("_arm")]
+    return s if s in VALID_ARM_SIDES else None
 
 
 def _check_skill_metadata(meta: dict, folder: str, where: str, report: Report) -> None:
@@ -415,7 +457,7 @@ def _annotation_base(node: ast.expr) -> Optional[str]:
 
 def _check_robotic_code(path: Path, folder: str, report: Report, manifest: dict,
                         *, modules_exists: bool, modules_names: set[str],
-                        modules_star: bool, utils_names: set[str],
+                        modules_star: Optional[str], utils_names: set[str],
                         world_info: dict, project_root: Path) -> Optional[dict]:
     """Validate one robotic_code.py. Returns the skill's signature model."""
     where = str(path)
@@ -447,6 +489,9 @@ def _check_robotic_code(path: Path, folder: str, report: Report, manifest: dict,
                           "(the platform derives the skill's parameters from its signature)")
 
     # ---- imports -----------------------------------------------------------
+    # `surface`: which platform API the skill is written against. A skill
+    # reaches it through modules.py (`from execution.skill_api import *`) or
+    # imports it directly; v2 is the current one, v1 is legacy.
     imported: set[str] = set()
     shadowed: set[str] = set()  # names bound locally or from non-platform modules
     for node in tree.body:
@@ -455,6 +500,7 @@ def _check_robotic_code(path: Path, folder: str, report: Report, manifest: dict,
         elif isinstance(node, ast.Assign):
             shadowed |= {t.id for t in node.targets if isinstance(t, ast.Name)}
     star_platform = False
+    surfaces: set[str] = set()
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             imported |= {(a.asname or a.name).split(".")[0] for a in node.names}
@@ -463,31 +509,36 @@ def _check_robotic_code(path: Path, folder: str, report: Report, manifest: dict,
             is_star = any(a.name == "*" for a in node.names)
             from_shim = mod in {"modules", ".modules"} or mod.endswith(".modules") or (
                 node.level == 1 and mod == "modules")
-            from_platform = "execution_functions" in mod
+            platform = _platform_surface(mod)
             if from_shim and not modules_exists:
                 report.err(where, f"imports from .modules but {folder}/modules.py does "
                                   "not exist (ImportError at load)")
+            if from_shim and modules_star:
+                surfaces.add(modules_star)
+            if platform:
+                surfaces.add(platform)
             if is_star:
                 if from_shim:
-                    star_platform = star_platform or modules_star
+                    star_platform = star_platform or bool(modules_star)
                     imported |= modules_names
-                elif from_platform:
+                elif platform:
                     star_platform = True
                 continue
             for a in node.names:
                 imported.add(a.asname or a.name)
                 nm = a.name
                 if from_shim:
-                    if manifest and nm not in manifest and nm not in modules_names and not modules_star:
+                    if (modules_star in (API_V2_MOD, None) and manifest and nm not in manifest
+                            and nm not in modules_names):
                         report.warn(where, f"imports {nm!r} from .modules but it is neither "
-                                           "in the platform API manifest nor defined in "
+                                           "in the skill API (execution.skill_api) nor defined in "
                                            "modules.py — possible ImportError at load")
-                elif from_platform:
+                elif platform == API_V2_MOD:
                     if manifest and nm not in manifest:
-                        report.warn(where, f"imports {nm!r} from execution.execution_functions "
-                                           "— not in the curated skill-facing API (__all__); "
-                                           "works only if the module defines it internally "
-                                           "(unsupported surface)")
+                        report.warn(where, f"imports {nm!r} from {mod} — not in the skill API's "
+                                           "__all__ (unsupported surface)")
+                elif platform == API_V1_MOD:
+                    pass
                 elif mod == "utils" and utils_names:
                     if nm not in utils_names:
                         report.err(where, f"imports {nm!r} from utils but skills/utils.py "
@@ -495,6 +546,15 @@ def _check_robotic_code(path: Path, folder: str, report: Report, manifest: dict,
                     shadowed.add(a.asname or a.name)
                 else:
                     shadowed.add(a.asname or a.name)
+
+    v1 = API_V1_MOD in surfaces and API_V2_MOD not in surfaces
+    if v1:
+        report.warn(where, "written against the v1 surface (execution.execution_functions): its "
+                           "Cartesian motion verbs raise NotImplementedError; port the skill to "
+                           "skill API v2 (`from execution.skill_api import *` in modules.py)")
+    # The vendored manifest is v2: lint call sites against it only for v2 skills.
+    if v1:
+        manifest = {}
 
     # ---- signature model + fidelity warnings --------------------------------
     sig_model: Optional[dict] = None
@@ -553,6 +613,7 @@ def _check_robotic_code(path: Path, folder: str, report: Report, manifest: dict,
     # ---- call-site lint ------------------------------------------------------
     import builtins as _builtins
     available = imported | defined | set(dir(_builtins))
+    v1_retired = load_v1_retired() if v1 else set()
 
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Name):
@@ -563,13 +624,24 @@ def _check_robotic_code(path: Path, folder: str, report: Report, manifest: dict,
         entry = manifest.get(fn_name) if fn_name not in shadowed else None
         model = _manifest_params(entry) if entry else None
 
+        if fn_name in v1_retired and fn_name not in shadowed:
+            report.err(where, f"line {node.lineno}: {fn_name}() is a retired v1 verb — it raises "
+                              "NotImplementedError at run time; use the skill API v2 verbs "
+                              "(move_arm / move_relative / move_path)")
+
         if fn_name not in available and not star_platform:
             report.warn(where, f"line {node.lineno}: call to {fn_name!r} which is neither "
                                "imported nor defined here — possible NameError at run time")
-        elif fn_name not in available and star_platform and manifest and fn_name not in manifest:
+        elif (fn_name not in available and star_platform and manifest
+              and fn_name not in manifest):
             report.warn(where, f"line {node.lineno}: call to {fn_name!r} resolved only via "
-                               "star-import, but it is not in the platform API manifest — "
+                               "star-import, but it is not in the skill API — "
                                "possible NameError at run time")
+
+        if entry and entry.get("deprecated"):
+            report.warn(where, f"line {node.lineno}: {fn_name}() is deprecated in the skill API "
+                               "(kept for old projects; logs a warning) — see "
+                               "references/skills.md for its replacement")
 
         if model:
             has_star_args = any(isinstance(x, ast.Starred) for x in node.args)
@@ -597,8 +669,8 @@ def _check_robotic_code(path: Path, folder: str, report: Report, manifest: dict,
                     report.err(where, f"line {node.lineno}: {fn_name}() missing required "
                                       f"argument(s): {', '.join(missing)} — TypeError at run time")
 
-            # Arm-literal check: any string other than left_arm/right_arm
-            # silently selects the RIGHT arm at run time.
+            # Arm-literal check: the platform normalizes "left"/"right" (and
+            # the v1 "left_arm"/"right_arm"); anything else raises ArmNotInSetup.
             if any(p["name"] == "arm" for p in model["positional"]) or "arm" in model["all_names"]:
                 arm_val = None
                 for kw in node.keywords:
@@ -609,32 +681,50 @@ def _check_robotic_code(path: Path, folder: str, report: Report, manifest: dict,
                     argnode = node.args[arm_idx]
                     if isinstance(argnode, ast.Constant):
                         arm_val = argnode.value
-                if isinstance(arm_val, str) and arm_val not in VALID_ARMS:
-                    report.err(where, f"line {node.lineno}: {fn_name}(arm={arm_val!r}) — arm "
-                                      "must be exactly 'left_arm' or 'right_arm'; anything "
-                                      "else silently moves the RIGHT arm")
+                if isinstance(arm_val, str) and _arm_side(arm_val) is None:
+                    report.err(where, f"line {node.lineno}: {fn_name}(arm={arm_val!r}) — an arm is "
+                                      "'left' or 'right' ('left_arm' / 'right_arm' accepted); "
+                                      "anything else raises ArmNotInSetup at run time")
+
+            kw = {k.arg: k.value for k in node.keywords if k.arg}
+            # tcp_speed is m/s along a straight line; a free move has none.
+            if fn_name in {"move_arm", "move_relative"} and "tcp_speed" in kw:
+                sl = kw.get("straight_line")
+                free = (sl is None and fn_name == "move_arm") or (
+                    isinstance(sl, ast.Constant) and sl.value is False)
+                if free and not (isinstance(kw["tcp_speed"], ast.Constant) and kw["tcp_speed"].value is None):
+                    report.err(where, f"line {node.lineno}: {fn_name}(..., tcp_speed=…) on a free "
+                                      "move (no straight_line=True) raises TcpSpeedOnFreeMove; "
+                                      "pass speed= (a fraction) or make the move a straight line")
+            # speed is a fraction (0, 1] of the joint-speed limit (v1 used mm/s).
+            if fn_name in FRACTION_SPEED_CALLS and isinstance(kw.get("speed"), ast.Constant):
+                sp = kw["speed"].value
+                if isinstance(sp, (int, float)) and not isinstance(sp, bool) and not 0 < sp <= 1:
+                    report.err(where, f"line {node.lineno}: {fn_name}(..., speed={sp!r}) — speed is "
+                                      "a fraction (0, 1] of the arm's joint-speed limit; "
+                                      "ValueError at run time (v1 mm/s speeds do not carry over)")
 
         # Safety flag audit (legacy `safe=` has no effect on the current API
         # and TypeErrors; flag it regardless of manifest availability).
         if fn_name in SAFETY_SENSITIVE_CALLS:
-            for kw in node.keywords:
-                if kw.arg == "safe" and isinstance(kw.value, ast.Constant) and kw.value.value is False:
+            for k in node.keywords:
+                if k.arg == "safe" and isinstance(k.value, ast.Constant) and k.value.value is False:
                     report.warn(where, f"line {node.lineno}: {fn_name}(..., safe=False) "
                                        "attempts to disable collision checking — the current "
                                        "API has no such flag (TypeError); remove it and "
                                        "confirm intent with the user")
 
         # Anchor / object-name cross-reference on literal calls.
-        if fn_name in {"load_object_anchor", "get_object_pose", "update_object_joint_config"}:
+        if fn_name in {"anchor", "get_anchor_pose", "load_object_anchor"} and fn_name not in shadowed:
             _check_object_literal_call(node, fn_name, where, report, world_info, project_root)
 
         # live_state access keys strictly by instance id — a display name
         # silently returns {} / creates a bogus entry.
         if fn_name in {"get_world_state", "set_world_state"}:
             first = None
-            for kw in node.keywords:
-                if kw.arg == "object_id" and isinstance(kw.value, ast.Constant):
-                    first = kw.value.value
+            for k in node.keywords:
+                if k.arg == "object_id" and isinstance(k.value, ast.Constant):
+                    first = k.value.value
             if first is None and node.args and isinstance(node.args[0], ast.Constant):
                 first = node.args[0].value
             if isinstance(first, str) and first in world_info.get("display_names", set()) \
@@ -642,7 +732,7 @@ def _check_robotic_code(path: Path, folder: str, report: Report, manifest: dict,
                 report.err(where, f"line {node.lineno}: {fn_name}({first!r}, …) passes a "
                                   "display name — live_state keys strictly by instance id; "
                                   "a name silently returns {} (and writes create a bogus "
-                                  "entry). Pass the SkillObject.id / world instance key")
+                                  "entry). Pass the instance id (resolve(obj))")
 
     return sig_model
 
@@ -653,7 +743,7 @@ def _check_object_literal_call(node: ast.Call, fn_name: str, where: str,
     args = [a.value if isinstance(a, ast.Constant) else None for a in node.args]
     kwargs = {kw.arg: kw.value.value for kw in node.keywords
               if kw.arg and isinstance(kw.value, ast.Constant)}
-    obj = kwargs.get("object_name") or (args[0] if args else None)
+    obj = kwargs.get("object_name") or kwargs.get("obj") or (args[0] if args else None)
     if not isinstance(obj, str):
         return
     resolved = _resolve_object_type(obj, world_info, project_root)
@@ -665,8 +755,9 @@ def _check_object_literal_call(node: ast.Call, fn_name: str, where: str,
         # model itself can come from the mesh database, so this is not an issue.
         return
     obj_type = resolved
-    if fn_name == "load_object_anchor":
-        anchor = kwargs.get("anchor_name") or (args[1] if len(args) > 1 else None)
+    if fn_name in {"anchor", "get_anchor_pose", "load_object_anchor"}:
+        anchor = (kwargs.get("anchor_name") or kwargs.get("name")
+                  or (args[1] if len(args) > 1 else None))
         if isinstance(anchor, str):
             anchors = _object_anchors(project_root, obj_type)
             if anchors is not None and anchor not in anchors:
@@ -1395,14 +1486,15 @@ def validate_files(root: Path, report: Report) -> None:
         size = path.stat().st_size
         if size >= BLOB_CAP:
             if rel_parts[0] == "data":
-                # Run-artifact push skips oversized files instead of failing.
-                report.warn(rel, f"{size} bytes ≥ the 16 MB blob cap — this artifact "
-                                 "will be silently skipped by the run-end sync")
+                # Run-artifact pushes and `zeon commit` leave oversized files out.
+                report.warn(rel, f"{size} bytes is over the 64 MB sync limit — this artifact "
+                                 "is left out of every sync (it stays on this disk only)")
             else:
-                report.err(rel, f"{size} bytes ≥ the 16 MB sync blob cap — every future "
-                                "commit/push of this project will fail")
+                report.err(rel, f"{size} bytes is over the 64 MB sync limit — `zeon commit` "
+                                "leaves it out (the cloud keeps its last committed version, "
+                                "or never has it), so the instance never runs this copy")
         elif size >= BLOB_WARN and rel_parts[0] != "data":
-            report.warn(rel, f"{size} bytes is close to the 16 MB sync blob cap")
+            report.warn(rel, f"{size} bytes is close to the 64 MB sync limit")
         if path.suffix.lower() in MESH_SUFFIXES and rel_parts[0] not in {"data", "worlds"}:
             report.warn(rel, "mesh-like binary in the project tree — meshes belong in "
                              "the mesh database, not in project files")

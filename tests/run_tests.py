@@ -6,7 +6,7 @@ Run from anywhere:  python3 tests/run_tests.py
 - compiles every bundled script
 - validates fixtures/valid_min → must be OK with zero errors
 - validates fixtures/broken   → every expected defect must be reported
-- sanity-checks the vendored execution-function manifest
+- sanity-checks the vendored skill API v2 manifest
 """
 
 from __future__ import annotations
@@ -34,10 +34,14 @@ EXPECTED_BROKEN = [
     "imports 'imaginary_teleport'",             # unknown platform import
     "but bad_skill/modules.py does not exist",  # .modules import w/o shim
     "collides with an engine-reserved state key",  # param named skill_result
-    "arm must be exactly 'left_arm' or 'right_arm'",
+    "an arm is 'left' or 'right'",              # move_arm("left_hand", ...)
     "unknown keyword",                          # move_arm(..., turbo=True)
     "missing required argument(s)",             # move_arm(arm=...) only
     "safe=False",
+    "raises TcpSpeedOnFreeMove",                # tcp_speed on a free move_arm
+    "speed is a fraction (0, 1]",               # v1-style speed=500
+    "written against the v1 surface",           # legacy_skill: modules.py star-imports v1
+    "play_object_motion() is a retired v1 verb",  # raises NotImplementedError
     "invented_function_xyz",                    # NameError lint
     "never returns a dict with a 'success' key",
     "passes a display name",                    # live_state keyed by instance id
@@ -103,13 +107,20 @@ def main() -> int:
     # 2. Manifest sanity.
     manifest = json.loads((SKILL / "references" / "execution-functions.json").read_text())
     fns = manifest.get("functions", {})
-    for required in ("move_arm", "set_gripper", "load_object_anchor", "is_sim_mode",
-                     "pause_for_user", "update_object_joint_config"):
+    for required in ("move_arm", "move_arm_js", "move_relative", "set_gripper", "anchor",
+                     "resolve", "contact", "attach", "release", "is_sim_mode",
+                     "pause_for_user", "get_world_state"):
         if required not in fns:
             fail(f"manifest missing {required!r}")
+    if "skill_api" not in manifest.get("source", ""):
+        fail("manifest is not generated from execution.skill_api (skill API v2)")
     move_arm_params = {p["name"] for p in fns["move_arm"]["signature"]}
     if "safe" in move_arm_params:
         fail("manifest claims move_arm has a 'safe' parameter — regenerate and re-review")
+    if "tcp_speed" not in move_arm_params or "straight_line" not in move_arm_params:
+        fail("manifest move_arm lacks the v2 keywords straight_line / tcp_speed")
+    if "move_arm" not in manifest.get("v1_retired", []):
+        fail("manifest does not list the retired v1 motion verbs")
     print(f"ok: manifest has {len(fns)} functions ({manifest.get('source')})")
 
     # 3. Valid fixture → zero errors.

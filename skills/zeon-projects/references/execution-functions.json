@@ -1,15 +1,1132 @@
 {
-  "source": "execution.execution_functions, platform source dated 2026-10-16",
-  "note": "Curated skill-facing API (__all__). Regenerate with scripts/dev/gen_function_manifest.py.",
+  "source": "execution.skill_api (skill API v2), platform source dated 2026-11-08",
+  "note": "Skill-facing API: the star export of execution.skill_api (__all__). Regenerate with scripts/dev/gen_function_manifest.py.",
+  "v1_retired": [
+    "interpolate_anchor_joint_path",
+    "interpolate_anchor_to_anchor",
+    "move_arm",
+    "move_relative",
+    "play_object_motion"
+  ],
   "functions": {
-    "SkillObject": {
-      "kind": "reexport"
+    "Pose": {
+      "kind": "class",
+      "doc": "A rigid transform: ``.matrix`` (4x4), ``.xyz``, ``.wxyz``, ``.rpy``. Immutable (every operation returns a new"
     },
-    "ExecutionInfoContext": {
-      "kind": "reexport"
+    "is_sim_mode": {
+      "kind": "function",
+      "signature": [],
+      "doc": "True when the verbs act on the sim set (skip a wait for a real instrument, a device press)."
     },
-    "ExecutionCancelledInSkillError": {
-      "kind": "reexport"
+    "Anchor": {
+      "kind": "class",
+      "doc": "An anchor of an object, evaluated at the object's joints now (or at hypothetical ``joints``)."
+    },
+    "Seat": {
+      "kind": "class",
+      "doc": "Where an object sits: its ``holder`` (instance id), the holder's ``anchor``, and ``style`` (``aligned`` /"
+    },
+    "resolve": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "obj",
+          "kind": "positional"
+        }
+      ],
+      "doc": "SkillObject / ``{\"object_ref\": ...}`` / instance id / display name -> instance id."
+    },
+    "name_of": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "obj",
+          "kind": "positional"
+        }
+      ],
+      "doc": "The display name of ``obj``."
+    },
+    "list_objects": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "type",
+          "kind": "positional",
+          "annotation": "Optional[str]",
+          "default": "None"
+        }
+      ],
+      "doc": "Instance ids (of ``type`` only, when given), sorted."
+    },
+    "anchor": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "obj",
+          "kind": "positional"
+        },
+        {
+          "name": "name",
+          "kind": "positional",
+          "annotation": "str"
+        },
+        {
+          "name": "joints",
+          "kind": "keyword_only",
+          "annotation": "Optional[Mapping[str, float]]",
+          "default": "None"
+        }
+      ],
+      "doc": "The anchor ``name`` of ``obj`` now, or at hypothetical ``joints`` (local names; the World is not written)."
+    },
+    "get_anchor_pose": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "obj",
+          "kind": "positional"
+        },
+        {
+          "name": "name",
+          "kind": "positional",
+          "annotation": "str"
+        },
+        {
+          "name": "joints",
+          "kind": "keyword_only",
+          "annotation": "Optional[Mapping[str, float]]",
+          "default": "None"
+        }
+      ],
+      "doc": ""
+    },
+    "get_object_pose": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "obj",
+          "kind": "positional"
+        }
+      ],
+      "doc": "The object's placement frame (``object``) in the world."
+    },
+    "list_anchors": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "obj",
+          "kind": "positional"
+        }
+      ],
+      "doc": ""
+    },
+    "spawn": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "object_type",
+          "kind": "positional",
+          "annotation": "str"
+        },
+        {
+          "name": "name",
+          "kind": "keyword_only",
+          "annotation": "Optional[str]",
+          "default": "None"
+        },
+        {
+          "name": "pose",
+          "kind": "keyword_only",
+          "default": "None"
+        },
+        {
+          "name": "on",
+          "kind": "keyword_only",
+          "annotation": "Optional[Tuple[object, str]]",
+          "default": "None"
+        },
+        {
+          "name": "style",
+          "kind": "keyword_only",
+          "annotation": "str",
+          "default": "'aligned'"
+        },
+        {
+          "name": "joints",
+          "kind": "keyword_only",
+          "annotation": "Optional[Mapping[str, float]]",
+          "default": "None"
+        },
+        {
+          "name": "id",
+          "kind": "keyword_only",
+          "annotation": "Optional[str]",
+          "default": "None"
+        }
+      ],
+      "doc": "Add an object of ``object_type`` (project ``objects/<type>/`` first, then the mesh database) at ``pose`` (world),"
+    },
+    "despawn": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "obj",
+          "kind": "positional"
+        }
+      ],
+      "doc": "Remove ``obj`` from the world (it is consumed, discarded). In memory only: the loaded world's files, its"
+    },
+    "replace": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "obj",
+          "kind": "positional"
+        },
+        {
+          "name": "object_type",
+          "kind": "positional",
+          "annotation": "str"
+        },
+        {
+          "name": "pose",
+          "kind": "keyword_only",
+          "default": "None"
+        }
+      ],
+      "doc": "Same id, new type (an uncapped tube is the same tube); a seated object is re-seated. Logged to the run"
+    },
+    "set_object_pose": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "obj",
+          "kind": "positional"
+        },
+        {
+          "name": "pose",
+          "kind": "positional"
+        },
+        {
+          "name": "anchor",
+          "kind": "keyword_only",
+          "annotation": "str",
+          "default": "'object'"
+        }
+      ],
+      "doc": "Book an object somewhere, no motion (a perception correction, a person moved it): its ``anchor`` at ``pose``"
+    },
+    "seat": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "obj",
+          "kind": "positional"
+        },
+        {
+          "name": "holder",
+          "kind": "positional"
+        },
+        {
+          "name": "anchor",
+          "kind": "positional",
+          "annotation": "str",
+          "default": "'top_center'"
+        },
+        {
+          "name": "style",
+          "kind": "keyword_only",
+          "annotation": "str",
+          "default": "'aligned'"
+        }
+      ],
+      "doc": "Book a seating without motion (a person loaded it): ``obj``'s ``bottom_center`` on the holder's ``anchor``."
+    },
+    "seat_of": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "obj",
+          "kind": "positional"
+        }
+      ],
+      "doc": ""
+    },
+    "attach": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "arm",
+          "kind": "positional"
+        },
+        {
+          "name": "obj",
+          "kind": "positional"
+        },
+        {
+          "name": "snap_anchor",
+          "kind": "keyword_only",
+          "annotation": "Optional[Union[str, Anchor]]",
+          "default": "None"
+        }
+      ],
+      "doc": "Book ``obj`` as held by ``arm`` (bookkeeping, after the gripper closed on it). ``snap_anchor``: the canonical"
+    },
+    "set_articulation": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "obj",
+          "kind": "positional"
+        },
+        {
+          "name": "preset_or_joints",
+          "kind": "positional",
+          "annotation": "Union[str, Mapping[str, float]]"
+        }
+      ],
+      "doc": "A preset name (``\"open\"``) or ``{joint: value}`` (local names). Writes the World only; the physical object is"
+    },
+    "get_articulation": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "obj",
+          "kind": "positional"
+        }
+      ],
+      "doc": ""
+    },
+    "holding": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "arm",
+          "kind": "positional"
+        }
+      ],
+      "doc": "The instance id ``arm`` holds (from the World's parents), or None."
+    },
+    "Step": {
+      "kind": "class",
+      "doc": "One waypoint of :func:`move_path` (the planner's ``Waypoint`` with move_arm's flags). ``scene``: the objects' joints"
+    },
+    "move_arm": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "arm",
+          "kind": "positional"
+        },
+        {
+          "name": "target",
+          "kind": "positional"
+        },
+        {
+          "name": "straight_line",
+          "kind": "keyword_only",
+          "annotation": "bool",
+          "default": "False"
+        },
+        {
+          "name": "speed",
+          "kind": "keyword_only",
+          "annotation": "Optional[float]",
+          "default": "None"
+        },
+        {
+          "name": "tcp_speed",
+          "kind": "keyword_only",
+          "annotation": "Optional[float]",
+          "default": "None"
+        },
+        {
+          "name": "allow",
+          "kind": "keyword_only",
+          "default": "None"
+        },
+        {
+          "name": "keep_upright",
+          "kind": "keyword_only",
+          "annotation": "Union[bool, float]",
+          "default": "False"
+        },
+        {
+          "name": "stop",
+          "kind": "keyword_only",
+          "annotation": "bool",
+          "default": "True"
+        },
+        {
+          "name": "tolerance",
+          "kind": "keyword_only",
+          "default": "None"
+        },
+        {
+          "name": "constraints",
+          "kind": "keyword_only",
+          "default": "None"
+        },
+        {
+          "name": "via",
+          "kind": "keyword_only",
+          "default": "None"
+        },
+        {
+          "name": "posture",
+          "kind": "keyword_only",
+          "default": "None"
+        }
+      ],
+      "doc": "The arm's TCP to ``target`` (a Pose / 4x4 / Anchor): planned and collision-checked (D5). Free by default;"
+    },
+    "move_arm_js": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "arm",
+          "kind": "positional"
+        },
+        {
+          "name": "q",
+          "kind": "positional"
+        },
+        {
+          "name": "speed",
+          "kind": "keyword_only",
+          "annotation": "Optional[float]",
+          "default": "None"
+        },
+        {
+          "name": "constraints",
+          "kind": "keyword_only",
+          "default": "None"
+        },
+        {
+          "name": "allow",
+          "kind": "keyword_only",
+          "default": "None"
+        },
+        {
+          "name": "stop",
+          "kind": "keyword_only",
+          "annotation": "bool",
+          "default": "True"
+        },
+        {
+          "name": "via",
+          "kind": "keyword_only",
+          "annotation": "Optional[Sequence]",
+          "default": "None"
+        }
+      ],
+      "doc": "The arm to joints ``q`` (6 values, rad, joint1..6): planned and collision-checked; routed through a via"
+    },
+    "move_relative": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "arm",
+          "kind": "positional"
+        },
+        {
+          "name": "dxyz",
+          "kind": "positional",
+          "default": "(0.0, 0.0, 0.0)"
+        },
+        {
+          "name": "drpy",
+          "kind": "positional",
+          "default": "(0.0, 0.0, 0.0)"
+        },
+        {
+          "name": "frame",
+          "kind": "keyword_only",
+          "annotation": "str",
+          "default": "'world'"
+        },
+        {
+          "name": "straight_line",
+          "kind": "keyword_only",
+          "annotation": "bool",
+          "default": "True"
+        },
+        {
+          "name": "keep_upright",
+          "kind": "keyword_only",
+          "annotation": "Union[bool, float]",
+          "default": "False"
+        },
+        {
+          "name": "tolerance",
+          "kind": "keyword_only",
+          "default": "None"
+        },
+        {
+          "name": "constraints",
+          "kind": "keyword_only",
+          "default": "None"
+        },
+        {
+          "name": "speed",
+          "kind": "keyword_only",
+          "annotation": "Optional[float]",
+          "default": "None"
+        },
+        {
+          "name": "tcp_speed",
+          "kind": "keyword_only",
+          "annotation": "Optional[float]",
+          "default": "None"
+        },
+        {
+          "name": "allow",
+          "kind": "keyword_only",
+          "default": "None"
+        },
+        {
+          "name": "stop",
+          "kind": "keyword_only",
+          "annotation": "bool",
+          "default": "True"
+        },
+        {
+          "name": "posture",
+          "kind": "keyword_only",
+          "default": "None"
+        }
+      ],
+      "doc": "A target relative to where the TCP is: ``dxyz`` m along the world axes (``frame=\"world\"``) or the TCP's"
+    },
+    "move_line_direct": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "arm",
+          "kind": "positional"
+        },
+        {
+          "name": "target",
+          "kind": "positional"
+        },
+        {
+          "name": "tcp_speed",
+          "kind": "keyword_only",
+          "annotation": "float"
+        },
+        {
+          "name": "accel",
+          "kind": "keyword_only",
+          "annotation": "Optional[float]",
+          "default": "None"
+        },
+        {
+          "name": "timeout",
+          "kind": "keyword_only",
+          "annotation": "Optional[float]",
+          "default": "None"
+        },
+        {
+          "name": "allow",
+          "kind": "keyword_only",
+          "default": "None"
+        },
+        {
+          "name": "constraints",
+          "kind": "keyword_only",
+          "default": "None"
+        },
+        {
+          "name": "keep_upright",
+          "kind": "keyword_only",
+          "annotation": "Union[bool, float]",
+          "default": "False"
+        },
+        {
+          "name": "tolerance",
+          "kind": "keyword_only",
+          "default": "None"
+        }
+      ],
+      "doc": "The arm's TCP to ``target`` (a Pose / 4x4 / Anchor, in the world) along a short straight line run by the xArm"
+    },
+    "move_relative_direct": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "arm",
+          "kind": "positional"
+        },
+        {
+          "name": "dxyz",
+          "kind": "positional",
+          "default": "(0.0, 0.0, 0.0)"
+        },
+        {
+          "name": "drpy",
+          "kind": "positional",
+          "default": "(0.0, 0.0, 0.0)"
+        },
+        {
+          "name": "frame",
+          "kind": "keyword_only",
+          "annotation": "str",
+          "default": "'world'"
+        },
+        {
+          "name": "tcp_speed",
+          "kind": "keyword_only",
+          "annotation": "float"
+        },
+        {
+          "name": "accel",
+          "kind": "keyword_only",
+          "annotation": "Optional[float]",
+          "default": "None"
+        },
+        {
+          "name": "timeout",
+          "kind": "keyword_only",
+          "annotation": "Optional[float]",
+          "default": "None"
+        },
+        {
+          "name": "allow",
+          "kind": "keyword_only",
+          "default": "None"
+        },
+        {
+          "name": "constraints",
+          "kind": "keyword_only",
+          "default": "None"
+        },
+        {
+          "name": "keep_upright",
+          "kind": "keyword_only",
+          "annotation": "Union[bool, float]",
+          "default": "False"
+        },
+        {
+          "name": "tolerance",
+          "kind": "keyword_only",
+          "default": "None"
+        }
+      ],
+      "doc": ":func:`move_line_direct` to a target relative to the TCP, as :func:`move_relative` builds it (``dxyz`` m along"
+    },
+    "move_path": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "arm",
+          "kind": "positional"
+        },
+        {
+          "name": "steps",
+          "kind": "positional",
+          "annotation": "Sequence[Step]"
+        },
+        {
+          "name": "speed",
+          "kind": "keyword_only",
+          "annotation": "Optional[float]",
+          "default": "None"
+        },
+        {
+          "name": "stop",
+          "kind": "keyword_only",
+          "annotation": "bool",
+          "default": "True"
+        }
+      ],
+      "doc": "Steps as ONE goal (the planner's ``Stack.set_path`` for one arm, the other held), each waypoint resolved by the Stack"
+    },
+    "collision_sensitivity": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "arm",
+          "kind": "positional"
+        },
+        {
+          "name": "level",
+          "kind": "positional",
+          "annotation": "int"
+        },
+        {
+          "name": "restore",
+          "kind": "keyword_only",
+          "annotation": "int",
+          "default": "3"
+        }
+      ],
+      "doc": "The xArm controller's own collision sensitivity of ``arm`` at ``level`` (0 off .. 5 most sensitive) inside the"
+    },
+    "sweep_anchor_steps": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "obj",
+          "kind": "positional"
+        },
+        {
+          "name": "anchor_name",
+          "kind": "positional",
+          "annotation": "str"
+        },
+        {
+          "name": "joint",
+          "kind": "positional",
+          "annotation": "str"
+        },
+        {
+          "name": "start_angle",
+          "kind": "positional",
+          "annotation": "float"
+        },
+        {
+          "name": "end_angle",
+          "kind": "positional",
+          "annotation": "float"
+        },
+        {
+          "name": "steps",
+          "kind": "positional",
+          "annotation": "int"
+        },
+        {
+          "name": "tcp_speed",
+          "kind": "positional",
+          "annotation": "Optional[float]"
+        },
+        {
+          "name": "end_dz",
+          "kind": "positional",
+          "annotation": "float",
+          "default": "0.0"
+        },
+        {
+          "name": "tolerance",
+          "kind": "positional",
+          "default": "None"
+        }
+      ],
+      "doc": "A lid / door arc as :func:`move_path` steps: for i in 1..``steps`` the anchor ``anchor_name`` of ``obj`` at"
+    },
+    "interp_anchor_steps": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "obj",
+          "kind": "positional"
+        },
+        {
+          "name": "a0",
+          "kind": "positional",
+          "annotation": "str"
+        },
+        {
+          "name": "a1",
+          "kind": "positional",
+          "annotation": "str"
+        },
+        {
+          "name": "joints",
+          "kind": "positional",
+          "annotation": "Optional[Mapping[str, float]]"
+        },
+        {
+          "name": "steps",
+          "kind": "positional",
+          "annotation": "int"
+        },
+        {
+          "name": "tcp_speed",
+          "kind": "positional",
+          "annotation": "Optional[float]"
+        },
+        {
+          "name": "start_dz",
+          "kind": "positional",
+          "annotation": "float",
+          "default": "0.0"
+        }
+      ],
+      "doc": "From anchor ``a0`` to anchor ``a1`` of ``obj`` (both at ``joints``) as :func:`move_path` steps: ``steps``"
+    },
+    "run_parallel": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "legs",
+          "kind": "positional",
+          "annotation": "Mapping[str, Any]"
+        },
+        {
+          "name": "timeout",
+          "kind": "keyword_only",
+          "annotation": "float",
+          "default": "600.0"
+        }
+      ],
+      "doc": "One zero-argument function per arm, run at once on ONE Stack: the legs' requests that meet are merged into one"
+    },
+    "plan_scope": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "name",
+          "kind": "positional",
+          "annotation": "str"
+        },
+        {
+          "name": "values",
+          "kind": "vararg"
+        }
+      ],
+      "doc": "The planned moves inside keyed by (the skill's source, ``name``, ``values``, the ordinal within the block)"
+    },
+    "set_gripper": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "arm",
+          "kind": "positional"
+        },
+        {
+          "name": "width",
+          "kind": "positional",
+          "annotation": "float"
+        },
+        {
+          "name": "wait",
+          "kind": "keyword_only",
+          "annotation": "bool",
+          "default": "True"
+        }
+      ],
+      "doc": "The gripper to ``width`` m between the fingers (0 closed .. GRIPPER_OPEN; wider is clipped). The Stack follows"
+    },
+    "release": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "arm",
+          "kind": "positional"
+        },
+        {
+          "name": "width",
+          "kind": "keyword_only",
+          "annotation": "Optional[float]",
+          "default": "None"
+        },
+        {
+          "name": "onto",
+          "kind": "keyword_only",
+          "annotation": "Optional[Tuple[Any, str]]",
+          "default": "None"
+        },
+        {
+          "name": "settle",
+          "kind": "keyword_only",
+          "default": "None"
+        },
+        {
+          "name": "settle_anchor",
+          "kind": "keyword_only",
+          "annotation": "Optional[str]",
+          "default": "None"
+        }
+      ],
+      "doc": "Open and let go without motion. ``onto=(holder, anchor)`` books it there (the seat record); ``settle`` (an Anchor"
+    },
+    "contact": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "arm",
+          "kind": "positional"
+        },
+        {
+          "name": "targets",
+          "kind": "vararg"
+        },
+        {
+          "name": "parts",
+          "kind": "keyword_only",
+          "annotation": "Union[str, Sequence[str]]",
+          "default": "'fingers'"
+        },
+        {
+          "name": "floor",
+          "kind": "keyword_only",
+          "annotation": "Optional[float]",
+          "default": "None"
+        },
+        {
+          "name": "side_floor",
+          "kind": "keyword_only",
+          "annotation": "Optional[float]",
+          "default": "None"
+        }
+      ],
+      "doc": "Permit ``arm`` to touch ``targets`` (Anchors, objects, or a named support surface of the cell such as"
+    },
+    "only": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "obj",
+          "kind": "positional"
+        },
+        {
+          "name": "link",
+          "kind": "positional",
+          "annotation": "Optional[str]",
+          "default": "None"
+        }
+      ],
+      "doc": "``obj`` as a :func:`contact` target by itself: not what sits in or on it, not what it sits on. ``link``: one"
+    },
+    "seat_contact": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "arm",
+          "kind": "positional"
+        },
+        {
+          "name": "holder",
+          "kind": "positional"
+        },
+        {
+          "name": "slot",
+          "kind": "positional",
+          "annotation": "str"
+        },
+        {
+          "name": "labware",
+          "kind": "vararg"
+        },
+        {
+          "name": "size",
+          "kind": "keyword_only",
+          "default": "SEAT_REGION_M"
+        },
+        {
+          "name": "dz",
+          "kind": "keyword_only",
+          "annotation": "float",
+          "default": "SEAT_REGION_DZ"
+        }
+      ],
+      "doc": "The seat-only allowance (``allow=`` value): inside a box at ``holder``'s anchor ``slot`` -- ``size`` (x y z, m)"
+    },
+    "tips_floor": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "arm",
+          "kind": "positional"
+        },
+        {
+          "name": "targets",
+          "kind": "vararg"
+        },
+        {
+          "name": "floor",
+          "kind": "keyword_only",
+          "annotation": "float",
+          "default": "TIPS_FLOOR_M"
+        }
+      ],
+      "doc": "A pair-specific floor (``allow=`` value): the arm's fingers and fingertip parts (the blades) may come ``floor``"
+    },
+    "get_gripper": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "arm",
+          "kind": "positional"
+        },
+        {
+          "name": "fresh",
+          "kind": "keyword_only",
+          "annotation": "bool",
+          "default": "True"
+        }
+      ],
+      "doc": "The opening (m) of ``arm``'s gripper. ``fresh`` (default): on the real set the arm's next reading (raises"
+    },
+    "get_joints": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "arm",
+          "kind": "positional"
+        },
+        {
+          "name": "fresh",
+          "kind": "keyword_only",
+          "annotation": "bool",
+          "default": "True"
+        }
+      ],
+      "doc": "The arm's 6 joints (rad). ``fresh``: as :func:`get_gripper`'s."
+    },
+    "get_tcp_pose": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "arm",
+          "kind": "positional"
+        },
+        {
+          "name": "fresh",
+          "kind": "keyword_only",
+          "annotation": "bool",
+          "default": "True"
+        }
+      ],
+      "doc": "The arm's active TCP (the gripper variant's tool frame) in the world. ``fresh``: as :func:`get_gripper`'s."
+    },
+    "tool_frame": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "arm",
+          "kind": "positional"
+        }
+      ],
+      "doc": "The name of ``arm``'s tool frame -- its active TCP (the gripper variant's) -- in the motion stack: the frame"
+    },
+    "SkillError": {
+      "kind": "class",
+      "doc": "A skill-level failure. ``hint``: what to change; ``diagnosis``: the library's, for the log; ``details``: every"
+    },
+    "ObjectNotFound": {
+      "kind": "class",
+      "doc": ""
+    },
+    "AmbiguousObject": {
+      "kind": "class",
+      "doc": ""
+    },
+    "AnchorNotFound": {
+      "kind": "class",
+      "doc": ""
+    },
+    "GripperMismatch": {
+      "kind": "class",
+      "doc": ""
+    },
+    "AlreadyHolding": {
+      "kind": "class",
+      "doc": ""
+    },
+    "NotHolding": {
+      "kind": "class",
+      "doc": ""
+    },
+    "HeldByOtherArm": {
+      "kind": "class",
+      "doc": ""
+    },
+    "HeldByArm": {
+      "kind": "class",
+      "doc": ""
+    },
+    "SeatOccupied": {
+      "kind": "class",
+      "doc": ""
+    },
+    "SeatMismatch": {
+      "kind": "class",
+      "doc": ""
+    },
+    "HolderHasOccupants": {
+      "kind": "class",
+      "doc": ""
+    },
+    "MotionFailed": {
+      "kind": "class",
+      "doc": "A motion request that did not end at its goal."
+    },
+    "Unreachable": {
+      "kind": "class",
+      "doc": ""
+    },
+    "WouldCollide": {
+      "kind": "class",
+      "doc": ""
+    },
+    "JointLimit": {
+      "kind": "class",
+      "doc": ""
+    },
+    "StraightLineImpossible": {
+      "kind": "class",
+      "doc": ""
+    },
+    "NoRoute": {
+      "kind": "class",
+      "doc": ""
+    },
+    "ConstraintViolated": {
+      "kind": "class",
+      "doc": ""
+    },
+    "MotionStalled": {
+      "kind": "class",
+      "doc": ""
+    },
+    "MotionAborted": {
+      "kind": "class",
+      "doc": ""
+    },
+    "ContactDetected": {
+      "kind": "class",
+      "doc": ""
+    },
+    "GraspFailed": {
+      "kind": "class",
+      "doc": ""
+    },
+    "GripperFault": {
+      "kind": "class",
+      "doc": ""
+    },
+    "ArmNotInSetup": {
+      "kind": "class",
+      "doc": ""
+    },
+    "ArmNotInLeg": {
+      "kind": "class",
+      "doc": ""
+    },
+    "DualArmRequired": {
+      "kind": "class",
+      "doc": ""
+    },
+    "TcpSpeedOnFreeMove": {
+      "kind": "class",
+      "doc": ""
+    },
+    "StaleArmState": {
+      "kind": "class",
+      "doc": ""
+    },
+    "NotAvailableInSim": {
+      "kind": "class",
+      "doc": ""
+    },
+    "PeripheralUnavailable": {
+      "kind": "class",
+      "doc": ""
+    },
+    "MotionUnavailable": {
+      "kind": "class",
+      "doc": ""
     },
     "print_log": {
       "kind": "function",
@@ -311,7 +1428,7 @@
           "default": "0.1"
         }
       ],
-      "doc": "Sleep for ``seconds`` while honoring pause/resume signals."
+      "doc": "v1 ``pause_aware_sleep`` (pause / resume honoured), on the sim set's playback clock: ``seconds`` divided by"
     },
     "send_slack": {
       "kind": "function",
@@ -356,6 +1473,12 @@
           "kind": "positional",
           "annotation": "str | None",
           "default": "None"
+        },
+        {
+          "name": "runlog",
+          "kind": "positional",
+          "annotation": "bool",
+          "default": "True"
         }
       ],
       "doc": "Send a Slack notification, optionally with local file/image attachments."
@@ -401,159 +1524,41 @@
       ],
       "doc": "Pause the workflow, ask the operator with buttons, return the choice."
     },
-    "move_arm": {
-      "kind": "function",
-      "signature": [
-        {
-          "name": "arm",
-          "kind": "positional"
-        },
-        {
-          "name": "position",
-          "kind": "positional"
-        },
-        {
-          "name": "orientation",
-          "kind": "positional"
-        },
-        {
-          "name": "speed",
-          "kind": "positional",
-          "default": "100"
-        },
-        {
-          "name": "wait",
-          "kind": "positional",
-          "default": "True"
-        },
-        {
-          "name": "max_ik_retries",
-          "kind": "keyword_only",
-          "annotation": "int",
-          "default": "3"
-        }
-      ],
-      "doc": "Move the arm's TCP to a Cartesian pose."
-    },
-    "move_arm_js": {
-      "kind": "function",
-      "signature": [
-        {
-          "name": "arm",
-          "kind": "positional"
-        },
-        {
-          "name": "joint_angles",
-          "kind": "positional"
-        },
-        {
-          "name": "speed",
-          "kind": "positional",
-          "default": "None"
-        }
-      ],
-      "doc": "Move the arm to a specific joint configuration."
-    },
-    "move_relative": {
-      "kind": "function",
-      "signature": [
-        {
-          "name": "arm",
-          "kind": "positional"
-        },
-        {
-          "name": "delta_xyz",
-          "kind": "positional"
-        },
-        {
-          "name": "delta_rpy",
-          "kind": "positional",
-          "default": "None"
-        },
-        {
-          "name": "speed",
-          "kind": "positional",
-          "default": "100"
-        },
-        {
-          "name": "wait",
-          "kind": "positional",
-          "default": "True"
-        }
-      ],
-      "doc": "Move arm relative to current position."
-    },
-    "get_arm_pose": {
-      "kind": "function",
-      "signature": [
-        {
-          "name": "arm",
-          "kind": "positional"
-        }
-      ],
-      "doc": "Get current Cartesian pose of the arm's TCP (Tool Center Point)."
-    },
-    "set_gripper": {
-      "kind": "function",
-      "signature": [
-        {
-          "name": "arm",
-          "kind": "positional"
-        },
-        {
-          "name": "width_m",
-          "kind": "positional"
-        }
-      ],
-      "doc": "Set gripper opening width."
-    },
-    "attach_object_to_arm": {
+    "get_world_state": {
       "kind": "function",
       "signature": [
         {
           "name": "object_id",
-          "kind": "positional"
-        },
-        {
-          "name": "arm",
-          "kind": "positional"
+          "kind": "positional",
+          "annotation": "str"
         }
       ],
-      "doc": "Attach object to arm and sync world."
+      "doc": "Return the per-world *live state* for one object, keyed by its world id."
     },
-    "detach_object_from_arm": {
+    "set_world_state": {
       "kind": "function",
       "signature": [
         {
           "name": "object_id",
-          "kind": "positional"
+          "kind": "positional",
+          "annotation": "str"
+        },
+        {
+          "name": "updates",
+          "kind": "positional",
+          "annotation": "dict"
         }
       ],
-      "doc": "Detach object from arm and sync world."
+      "doc": "Merge `updates` into an object's live-state entry and persist it."
     },
-    "capture_image": {
-      "kind": "function",
-      "signature": [
-        {
-          "name": "arm",
-          "kind": "positional"
-        },
-        {
-          "name": "capture_name",
-          "kind": "positional"
-        },
-        {
-          "name": "save_to_project",
-          "kind": "positional",
-          "default": "False"
-        },
-        {
-          "name": "export",
-          "kind": "positional",
-          "default": "False"
-        }
-      ],
-      "doc": "Capture image from specified arm and save to readouts directory."
+    "SkillObject": {
+      "kind": "reexport"
+    },
+    "ExecutionInfoContext": {
+      "kind": "reexport"
+    },
+    "ExecutionCancelledInSkillError": {
+      "kind": "reexport"
     },
     "localize_object_tags": {
       "kind": "function",
@@ -570,12 +1575,7 @@
         {
           "name": "arm",
           "kind": "keyword_only",
-          "default": "'left_arm'"
-        },
-        {
-          "name": "mode",
-          "kind": "keyword_only",
-          "default": "'corner'"
+          "default": "None"
         },
         {
           "name": "use_prior",
@@ -593,11 +1593,6 @@
           "default": "10.0"
         },
         {
-          "name": "use_full_theta",
-          "kind": "keyword_only",
-          "default": "False"
-        },
-        {
           "name": "tag_edge_m",
           "kind": "keyword_only",
           "default": "None"
@@ -610,12 +1605,12 @@
         {
           "name": "sigma_px",
           "kind": "keyword_only",
-          "default": "1.0"
+          "default": "0.5"
         },
         {
           "name": "huber_px",
           "kind": "keyword_only",
-          "default": "2.0"
+          "default": "None"
         },
         {
           "name": "pos_sigma_gate_mm",
@@ -641,456 +1636,19 @@
           "name": "index",
           "kind": "keyword_only",
           "default": "None"
+        },
+        {
+          "name": "mode",
+          "kind": "keyword_only",
+          "default": "'corner'"
+        },
+        {
+          "name": "use_full_theta",
+          "kind": "keyword_only",
+          "default": "None"
         }
       ],
       "doc": "Relocalize ``object_name`` from AprilTags and refine its world pose; return a diagnostic."
-    },
-    "is_sim_mode": {
-      "kind": "function",
-      "signature": [],
-      "doc": "True when running in sim (use e.g. fake AprilTag readouts)."
-    },
-    "get_object_pose": {
-      "kind": "function",
-      "signature": [
-        {
-          "name": "object_name",
-          "kind": "positional",
-          "annotation": "str"
-        },
-        {
-          "name": "index",
-          "kind": "positional",
-          "annotation": "int | None",
-          "default": "None"
-        }
-      ],
-      "doc": "Get the world-frame pose of an object by name and optional index."
-    },
-    "load_object_anchor": {
-      "kind": "function",
-      "signature": [
-        {
-          "name": "object_name",
-          "kind": "positional",
-          "annotation": "str"
-        },
-        {
-          "name": "anchor_name",
-          "kind": "positional",
-          "annotation": "str"
-        },
-        {
-          "name": "index",
-          "kind": "positional",
-          "annotation": "int | None",
-          "default": "None"
-        },
-        {
-          "name": "joint_config",
-          "kind": "positional",
-          "annotation": "dict | None",
-          "default": "None"
-        }
-      ],
-      "doc": "Get an anchor's world-frame pose for any object (static or articulated)."
-    },
-    "list_object_motions": {
-      "kind": "function",
-      "signature": [
-        {
-          "name": "object_name",
-          "kind": "positional",
-          "annotation": "str"
-        },
-        {
-          "name": "index",
-          "kind": "positional",
-          "annotation": "int | None",
-          "default": "None"
-        }
-      ],
-      "doc": "Names of the motions an object has, sorted."
-    },
-    "load_object_motion": {
-      "kind": "function",
-      "signature": [
-        {
-          "name": "object_name",
-          "kind": "positional",
-          "annotation": "str"
-        },
-        {
-          "name": "motion_name",
-          "kind": "positional",
-          "annotation": "str"
-        },
-        {
-          "name": "index",
-          "kind": "positional",
-          "annotation": "int | None",
-          "default": "None"
-        },
-        {
-          "name": "joint_config",
-          "kind": "positional",
-          "annotation": "dict | None",
-          "default": "None"
-        }
-      ],
-      "doc": "Get a stored motion's keyposes in world coordinates."
-    },
-    "play_object_motion": {
-      "kind": "function",
-      "signature": [
-        {
-          "name": "arm",
-          "kind": "positional",
-          "annotation": "str"
-        },
-        {
-          "name": "object_name",
-          "kind": "positional",
-          "annotation": "str"
-        },
-        {
-          "name": "motion_name",
-          "kind": "positional",
-          "annotation": "str"
-        },
-        {
-          "name": "speed",
-          "kind": "keyword_only",
-          "annotation": "float",
-          "default": "0.1"
-        },
-        {
-          "name": "accel",
-          "kind": "keyword_only",
-          "annotation": "float | None",
-          "default": "None"
-        },
-        {
-          "name": "max_total_accel",
-          "kind": "keyword_only",
-          "annotation": "float | None",
-          "default": "None"
-        },
-        {
-          "name": "time_scale",
-          "kind": "keyword_only",
-          "annotation": "float",
-          "default": "1.0"
-        },
-        {
-          "name": "index",
-          "kind": "keyword_only",
-          "annotation": "int | None",
-          "default": "None"
-        },
-        {
-          "name": "joint_config",
-          "kind": "keyword_only",
-          "annotation": "dict | None",
-          "default": "None"
-        },
-        {
-          "name": "blend_radius_mm",
-          "kind": "keyword_only",
-          "annotation": "float | None",
-          "default": "None"
-        },
-        {
-          "name": "apply_gripper",
-          "kind": "keyword_only",
-          "annotation": "bool",
-          "default": "True"
-        },
-        {
-          "name": "executor",
-          "kind": "keyword_only",
-          "annotation": "str | None",
-          "default": "None"
-        },
-        {
-          "name": "wait",
-          "kind": "keyword_only",
-          "annotation": "bool",
-          "default": "True"
-        }
-      ],
-      "doc": "Replay a stored motion, rebased onto the object's current pose."
-    },
-    "anchor_preapproach": {
-      "kind": "function",
-      "signature": [
-        {
-          "name": "anchor",
-          "kind": "positional",
-          "annotation": "dict"
-        },
-        {
-          "name": "standoff",
-          "kind": "positional",
-          "annotation": "float | None",
-          "default": "None"
-        }
-      ],
-      "doc": "Compute pre-approach position at standoff distance from anchor."
-    },
-    "get_world_state": {
-      "kind": "function",
-      "signature": [
-        {
-          "name": "object_id",
-          "kind": "positional",
-          "annotation": "str"
-        }
-      ],
-      "doc": "Return the per-world *live state* for one object, keyed by its UUID."
-    },
-    "set_world_state": {
-      "kind": "function",
-      "signature": [
-        {
-          "name": "object_id",
-          "kind": "positional",
-          "annotation": "str"
-        },
-        {
-          "name": "updates",
-          "kind": "positional",
-          "annotation": "dict"
-        }
-      ],
-      "doc": "Merge `updates` into an object's live-state entry and persist it."
-    },
-    "update_object_joint_config": {
-      "kind": "function",
-      "signature": [
-        {
-          "name": "object_name",
-          "kind": "positional",
-          "annotation": "str"
-        },
-        {
-          "name": "joint_config_update",
-          "kind": "positional",
-          "annotation": "dict"
-        }
-      ],
-      "doc": "Update the world model's joint config for an articulated object."
-    },
-    "snap_object_to_world_pose": {
-      "kind": "function",
-      "signature": [
-        {
-          "name": "object_id",
-          "kind": "positional",
-          "annotation": "str"
-        },
-        {
-          "name": "xyz",
-          "kind": "positional",
-          "annotation": "list"
-        },
-        {
-          "name": "wxyz",
-          "kind": "positional",
-          "annotation": "list"
-        }
-      ],
-      "doc": "Snap an object to an explicit world-frame pose."
-    },
-    "snap_object_anchor_to_world_pose": {
-      "kind": "function",
-      "signature": [
-        {
-          "name": "object_id",
-          "kind": "positional",
-          "annotation": "str"
-        },
-        {
-          "name": "anchor_name",
-          "kind": "positional",
-          "annotation": "str"
-        },
-        {
-          "name": "xyz",
-          "kind": "positional",
-          "annotation": "list"
-        },
-        {
-          "name": "wxyz",
-          "kind": "positional",
-          "annotation": "list"
-        }
-      ],
-      "doc": "Snap an object so that a named anchor aligns with an explicit world-frame target pose."
-    },
-    "get_object_tcp_transform": {
-      "kind": "function",
-      "signature": [
-        {
-          "name": "object_id",
-          "kind": "positional",
-          "annotation": "str"
-        }
-      ],
-      "doc": "Return the TCP-to-object transform for an object currently attached to an arm."
-    },
-    "interpolate_anchor_joint_path": {
-      "kind": "function",
-      "signature": [
-        {
-          "name": "arm",
-          "kind": "positional",
-          "annotation": "str"
-        },
-        {
-          "name": "object_name",
-          "kind": "positional",
-          "annotation": "str"
-        },
-        {
-          "name": "anchor_name",
-          "kind": "positional",
-          "annotation": "str"
-        },
-        {
-          "name": "joint_path",
-          "kind": "positional",
-          "annotation": "dict[str, tuple[float, float]]"
-        },
-        {
-          "name": "fixed_joints",
-          "kind": "keyword_only",
-          "annotation": "dict[str, float] | None",
-          "default": "None"
-        },
-        {
-          "name": "steps",
-          "kind": "keyword_only",
-          "annotation": "int",
-          "default": "5"
-        },
-        {
-          "name": "speed",
-          "kind": "keyword_only",
-          "annotation": "float",
-          "default": "20"
-        },
-        {
-          "name": "wait",
-          "kind": "keyword_only",
-          "annotation": "bool",
-          "default": "True"
-        },
-        {
-          "name": "index",
-          "kind": "keyword_only",
-          "annotation": "int | None",
-          "default": "None"
-        },
-        {
-          "name": "sync_joint_config",
-          "kind": "keyword_only",
-          "annotation": "bool",
-          "default": "True"
-        }
-      ],
-      "doc": "Sweep an articulated object's joint(s) and move ``arm`` along the anchor arc."
-    },
-    "interpolate_anchor_to_anchor": {
-      "kind": "function",
-      "signature": [
-        {
-          "name": "arm",
-          "kind": "positional",
-          "annotation": "str"
-        },
-        {
-          "name": "object_name",
-          "kind": "positional",
-          "annotation": "str"
-        },
-        {
-          "name": "start_anchor",
-          "kind": "positional",
-          "annotation": "str"
-        },
-        {
-          "name": "end_anchor",
-          "kind": "positional",
-          "annotation": "str"
-        },
-        {
-          "name": "start_joint_config",
-          "kind": "keyword_only",
-          "annotation": "dict | None",
-          "default": "None"
-        },
-        {
-          "name": "end_joint_config",
-          "kind": "keyword_only",
-          "annotation": "dict | None",
-          "default": "None"
-        },
-        {
-          "name": "interpolate",
-          "kind": "keyword_only",
-          "annotation": "bool",
-          "default": "False"
-        },
-        {
-          "name": "steps",
-          "kind": "keyword_only",
-          "annotation": "int",
-          "default": "5"
-        },
-        {
-          "name": "speed",
-          "kind": "keyword_only",
-          "annotation": "float",
-          "default": "20"
-        },
-        {
-          "name": "wait",
-          "kind": "keyword_only",
-          "annotation": "bool",
-          "default": "True"
-        },
-        {
-          "name": "index",
-          "kind": "keyword_only",
-          "annotation": "int | None",
-          "default": "None"
-        }
-      ],
-      "doc": "Move ``arm`` between two resolved anchor poses."
-    },
-    "init_epipette": {
-      "kind": "function",
-      "signature": [
-        {
-          "name": "name",
-          "kind": "positional",
-          "annotation": "str"
-        },
-        {
-          "name": "ble_device_name",
-          "kind": "positional",
-          "annotation": "str",
-          "default": "'picus'"
-        },
-        {
-          "name": "debug",
-          "kind": "positional",
-          "annotation": "bool",
-          "default": "True"
-        }
-      ],
-      "doc": "Connect to an epipette and register it under a logical name."
     },
     "epipette_aspirate": {
       "kind": "function",
@@ -1173,27 +1731,33 @@
       ],
       "doc": "Blow out residual liquid from epipette tip to clear firmware 'liquid present' warning."
     },
-    "epipette_disconnect": {
+    "init_epipette": {
       "kind": "function",
       "signature": [
         {
           "name": "name",
           "kind": "positional",
           "annotation": "str"
+        },
+        {
+          "name": "ble_device_name",
+          "kind": "positional",
+          "annotation": "str",
+          "default": "'picus'"
+        },
+        {
+          "name": "debug",
+          "kind": "positional",
+          "annotation": "bool",
+          "default": "True"
         }
       ],
-      "doc": "Disconnect a named epipette device."
+      "doc": "Wait until a pipette is connected on the pipette server and return a handle for it (None if it is not)."
     },
-    "epipette_reconnect": {
+    "epipette_status": {
       "kind": "function",
-      "signature": [
-        {
-          "name": "name",
-          "kind": "positional",
-          "annotation": "str"
-        }
-      ],
-      "doc": "Re-establish a dropped BLE link to an already-initialized epipette."
+      "signature": [],
+      "doc": "Passive connectivity report for the expected epipette(s)."
     },
     "EPIPETTE": {
       "kind": "constant",
@@ -1226,6 +1790,212 @@
     "EpipetteNotConfiguredError": {
       "kind": "class",
       "doc": "Asked for a pipette this rig does not have enabled. Names the fix."
+    },
+    "place_object": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "obj",
+          "kind": "positional"
+        },
+        {
+          "name": "pose",
+          "kind": "positional"
+        },
+        {
+          "name": "anchor",
+          "kind": "keyword_only",
+          "annotation": "str",
+          "default": "'object'"
+        }
+      ],
+      "doc": "Deprecated: :func:`~.world.set_object_pose`.",
+      "deprecated": true
+    },
+    "Allow": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "a",
+          "kind": "positional",
+          "annotation": "str"
+        },
+        {
+          "name": "b",
+          "kind": "positional",
+          "annotation": "str"
+        },
+        {
+          "name": "floor",
+          "kind": "positional",
+          "annotation": "Optional[float]",
+          "default": "None"
+        },
+        {
+          "name": "within",
+          "kind": "positional",
+          "default": "None"
+        }
+      ],
+      "doc": "Deprecated: the library's ``Allow`` (scene names; ``floor`` m, None: not checked). Use",
+      "deprecated": true
+    },
+    "tcp": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "arm",
+          "kind": "positional"
+        }
+      ],
+      "doc": "Deprecated: :func:`~.motion.tool_frame` (the arm's active TCP frame, for a library ``Keep``).",
+      "deprecated": true
+    },
+    "arms": {
+      "kind": "function",
+      "signature": [],
+      "doc": "Deprecated: the setup's sides (``(\"left\", \"right\")`` on a two-arm setup).",
+      "deprecated": true
+    },
+    "capture_image": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "camera",
+          "kind": "positional",
+          "annotation": "Any",
+          "default": "None"
+        },
+        {
+          "name": "name",
+          "kind": "positional",
+          "annotation": "Optional[str]",
+          "default": "None"
+        },
+        {
+          "name": "depth",
+          "kind": "keyword_only",
+          "annotation": "bool",
+          "default": "True"
+        },
+        {
+          "name": "quality",
+          "kind": "keyword_only",
+          "annotation": "str",
+          "default": "'normal'"
+        },
+        {
+          "name": "export",
+          "kind": "keyword_only",
+          "annotation": "bool",
+          "default": "False"
+        },
+        {
+          "name": "save_to_project",
+          "kind": "keyword_only",
+          "annotation": "Any",
+          "default": "None"
+        },
+        {
+          "name": "arm",
+          "kind": "keyword_only",
+          "annotation": "Any",
+          "default": "None"
+        },
+        {
+          "name": "capture_name",
+          "kind": "keyword_only",
+          "annotation": "Optional[str]",
+          "default": "None"
+        }
+      ],
+      "doc": "One posed snapshot of ``camera``, saved to ``data/readouts/<name>/`` and the project data folder"
+    },
+    "capture_video": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "camera_or_cameras",
+          "kind": "positional",
+          "annotation": "Union[Any, Sequence[Any]]"
+        },
+        {
+          "name": "name",
+          "kind": "positional",
+          "annotation": "str"
+        },
+        {
+          "name": "seconds",
+          "kind": "positional",
+          "annotation": "float"
+        },
+        {
+          "name": "fps",
+          "kind": "keyword_only",
+          "annotation": "Optional[float]",
+          "default": "None"
+        },
+        {
+          "name": "depth",
+          "kind": "keyword_only",
+          "annotation": "bool",
+          "default": "False"
+        },
+        {
+          "name": "export",
+          "kind": "keyword_only",
+          "annotation": "bool",
+          "default": "False"
+        }
+      ],
+      "doc": "Record ``seconds`` of video from one camera or a list of cameras (in sync, one folder), blocking."
+    },
+    "record_video": {
+      "kind": "function",
+      "signature": [
+        {
+          "name": "camera_or_cameras",
+          "kind": "positional",
+          "annotation": "Union[Any, Sequence[Any]]"
+        },
+        {
+          "name": "name",
+          "kind": "positional",
+          "annotation": "str"
+        },
+        {
+          "name": "fps",
+          "kind": "keyword_only",
+          "annotation": "Optional[float]",
+          "default": "None"
+        },
+        {
+          "name": "depth",
+          "kind": "keyword_only",
+          "annotation": "bool",
+          "default": "False"
+        },
+        {
+          "name": "export",
+          "kind": "keyword_only",
+          "annotation": "bool",
+          "default": "False"
+        }
+      ],
+      "doc": "Record while the block runs: stops at the block's end, on an exception in it (which propagates) and when the"
+    },
+    "list_cameras": {
+      "kind": "function",
+      "signature": [],
+      "doc": "The cameras a skill can name: those the camera runtime serves now, plus the set's own wrist cameras (the"
+    },
+    "Capture": {
+      "kind": "class",
+      "doc": "One posed still. The value IS the ``data/readouts/<name>/`` directory (a ``str``, as v1 returned), so"
+    },
+    "Recording": {
+      "kind": "class",
+      "doc": "A video recording of one or several cameras (filled as it runs; final once the recording has stopped)."
     }
   }
 }
