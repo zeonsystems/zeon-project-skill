@@ -16,13 +16,17 @@ skills/<skill_id>/
 └── .motion_plan_cache.pkl       # written by the platform: the skill's plan cache (synced; never author it)
 skills/utils.py                  # optional shared helpers (part of every skill's plan-cache key)
 workflows/<workflow_id>.json     # one graph per file
-worlds/<world_id>/
-├── world_state.json             # the scene: object instances + poses, its tables included
-└── live_state.yaml              # mutable per-object state (tip counters, calibration)
+worlds/<world_id>/               # two formats (references/worlds-and-objects.md):
+├── world.world                  #   saved: the world itself (what loads)
+├── world.world.engine.json      #   saved: per instance type, metadata, seat
+├── world_state.json             #   saved: a derived manifest (never read back); old layout: the scene itself
+└── live_state.yaml              # run-time state, version 2, keyed by seat (references/live-state.md)
 objects/<type>/
 ├── <type>.urdf                  # kinematics/geometry references
-├── <type>.object_model.yaml     # anchors, parts, articulations, motions
-└── tag_collections/<unit>.yaml  # optional: per-physical-copy fiducial tags
+├── <type>.object_model.yaml     # anchors, parts, articulations (strict schema)
+├── motions.yaml                 # optional: recorded motions
+├── tags.yaml                    # optional: the type's one tagged unit
+└── units/<handle>/tags.yaml     # optional: one per physical tagged unit
 canvas/<workflow_id>_screen.tsx  # optional run-setup UI per workflow
 inputs/<preset>.json             # optional input presets surfaced to canvases (references/canvas.md)
 data/                            # run artifacts, keyed per run by execution_id:

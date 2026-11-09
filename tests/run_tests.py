@@ -12,6 +12,7 @@ Run from anywhere:  python3 tests/run_tests.py
 from __future__ import annotations
 
 import json
+import re
 import py_compile
 import subprocess
 import sys
@@ -157,6 +158,60 @@ def main() -> int:
         fail("a UUID-shaped default on a declared string input must not be flagged")
     print(f"ok: broken fixture reports all {len(EXPECTED_BROKEN)} planted defects "
           f"({len(result['errors'])} errors, {len(result['warnings'])} warnings)")
+
+    # 5. Agent-loop eval checker: each pass/fail transcript fixture gets its verdict.
+    sys.path.insert(0, str(REPO / "evals"))
+    import check_transcript  # noqa: E402
+
+    tdir = FIXTURES / "transcripts"
+    for task in check_transcript.CHECKS:
+        for verdict in ("pass", "fail"):
+            path = tdir / f"{task}.{verdict}.jsonl"
+            if not path.is_file():
+                fail(f"missing transcript fixture {path.name}")
+            errs = check_transcript.run(task, path)
+            if (verdict == "pass") == bool(errs):
+                fail(f"check_transcript {task} on {path.name}: expected {verdict}, got {errs or 'pass'}")
+    print(f"ok: transcript checks give the expected verdict on {2 * len(check_transcript.CHECKS)} fixtures")
+
+    # 6. Skill text: the rules an agent acts on are stated, and nothing internal ships.
+    text = {p.relative_to(REPO).as_posix(): p.read_text()
+            for p in [SKILL / "SKILL.md", *sorted((SKILL / "references").glob("*.md"))]}
+    skill_md = text["skills/zeon-projects/SKILL.md"]
+    required = {
+        "SKILL.md": [
+            "zeon up", "zeon run", "zeon open --workflow", "zeon open --canvas", "Confirm setup", "zeon up` first",
+            "world_missing", "from_project", "64 MB", "data/runs/", ".runtime/", "metadata.json", "zeon pull",
+            "plan cache", "top-level `skills/*.py`", "Stop is final", "ask_user_slack",
+            "from execution.skill_api import *", '"left"', "public items plus your org",
+        ],
+        "references/agent-loop.md": ["every 3 s", "zeon up", "world_missing", "waiting_on_prompt"],
+        "references/execution-model.md": ["410", "timeout counting", "source digest", "in memory N, read M"],
+        "references/project-layout.md": ["64 MB", "run_log_", ".motion_plan_cache.pkl", "data/runs/"],
+        "references/canvas.md": ["zeon open --canvas", "every 3 s", "no canvas editor"],
+    }
+    for rel, phrases in required.items():
+        body = skill_md if rel == "SKILL.md" else text[f"skills/zeon-projects/{rel}"]
+        missing = [ph for ph in phrases if ph not in body]
+        if missing:
+            fail(f"{rel} no longer states: {missing}")
+    if len(skill_md.encode()) > 14_000:
+        fail(f"SKILL.md is {len(skill_md.encode())} bytes; move detail into references/")
+    # The skill ships to customers: no internal tools, team-only run controls, hosts, addresses or tokens.
+    forbidden = [
+        (r"\bzeonctl\b|\bzeon-dev\b|\breplmux\b", "internal tool"),
+        (r"\bheld\(\)|dev\.run_|next_actions|control_state", "team-only run control"),
+        (r"\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b", "IP address"),
+        (r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[a-z]{2,}", "email address"),
+        (r"zat_[A-Za-z0-9]{6,}", "token"),
+        (r"scratch/|\.claude/projects", "internal path"),
+    ]
+    for rel, body in text.items():
+        for pattern, what in forbidden:
+            m = re.search(pattern, body)
+            if m:
+                fail(f"{rel}: {what} {m.group(0)!r} must not ship in the skill")
+    print(f"ok: skill text states the agent-loop rules and ships nothing internal ({len(text)} files)")
 
     print("all tests passed")
     return 0

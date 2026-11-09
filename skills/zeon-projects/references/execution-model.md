@@ -85,7 +85,8 @@ it is how loop injection works.
 
 Input values flow into state at run start; an input the run does not set takes its declared `defaultValue`. A
 value becomes an object reference (`{"object_ref": <value>}`) only when its input is **declared** `object`, and
-then it resolves as an instance id or a unique display name. Inputs declared `string` / `int` / ... pass through
+then it must be an instance id of the loaded world: a display name or a type is refused when the skill
+is called (it may stand for several objects). Inputs declared `string` / `int` / ... pass through
 as they are, even when they hold a UUID. Only an input with **no** declared type falls back to a shape test (a
 string containing a UUID is treated as an object reference, and the lookup miss aborts the skill): declare
 every input's `type`.

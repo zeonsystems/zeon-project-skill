@@ -90,7 +90,7 @@ The executor's semantics for all of this — exception-driven failure routing, t
 
 - `type`: `string` | `int` | `float` | `object` | `structured`. `object` = a world object reference; `structured` = schema-based data with `itemSchema`.
 - `is_array` / `isArray` for multi-value inputs (both spellings accepted; array-of-structured uses `itemSchema` to type each item).
-- **Object input values are world object instance ids** — what `zeon brief` lists for the world (seeded worlds use readable ids such as `wellplate`). A unique display name also resolves; an ambiguous one raises. An input takes its `defaultValue` unless the run gives one (`zeon run -i name=value`, the app's run dialog).
+- **Object input values are world object instance ids** — what `zeon brief` lists for the world (seeded worlds use readable ids such as `wellplate`). A display name or a type is refused when the skill receives it (it may stand for several objects). An input takes its `defaultValue` unless the run gives one (`zeon run -i name=value`, the app's run dialog).
 - Names match `^[A-Za-z][A-Za-z0-9_]*$`.
 - **Declare every input's `type`.** A value becomes an object reference only when its input is declared `object`; an input with no declared type falls back to a shape test (a string containing a UUID is treated as an object reference, and the lookup miss aborts the skill).
 
