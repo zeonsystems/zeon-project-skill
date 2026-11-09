@@ -1177,8 +1177,31 @@ def _check_canvas_ui(canvas_ui: dict, root: Path, where: str, report: Report) ->
 # worlds/
 # ---------------------------------------------------------------------------
 
+WORLD_MANIFEST_FORMAT = "zeon_world_state/2"   # an engine-saved world (world.world + sidecar)
+WORLD_SIDECAR_FORMAT = "zeon_world_engine/1"
+
+
+def _v1_object_type(entry: dict) -> Optional[str]:
+    """The object type the platform's read-only importer derives for an old
+    (v1) world_state.json instance: metadata.type, else the folder after
+    objects/ or mesh_database/ in geometry.yaml_path, else that file's stem."""
+    meta = entry.get("metadata")
+    meta = meta if isinstance(meta, dict) else {}
+    if meta.get("type"):
+        return str(meta["type"])
+    y = (entry.get("geometry") or {}).get("yaml_path")
+    if not isinstance(y, str) or not y:
+        return None
+    parts = Path(y).parts
+    for seg in ("objects", "mesh_database"):
+        if seg in parts and parts.index(seg) + 1 < len(parts):
+            return parts[parts.index(seg) + 1]
+    nm = Path(y).name
+    return nm[: -len(".object_model.yaml")] if nm.endswith(".object_model.yaml") else None
+
+
 def collect_world_info(root: Path) -> dict:
-    """Map world-instance names/keys to object types, before validation."""
+    """Map world-instance ids / display names to object types, before validation."""
     name_to_type: dict[str, str] = {}
     instance_keys: set[str] = set()
     display_names: set[str] = set()
@@ -1190,22 +1213,27 @@ def collect_world_info(root: Path) -> dict:
             data = json.loads(state.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, OSError, UnicodeDecodeError, ValueError):
             continue
-        objects = data.get("objects")
+        objects = data.get("objects") if isinstance(data, dict) else None
         if not isinstance(objects, dict):
             continue
+        v2 = data.get("format") == WORLD_MANIFEST_FORMAT
         for key, entry in objects.items():
             if not isinstance(entry, dict):
                 continue
-            meta = entry.get("metadata")
-            meta = meta if isinstance(meta, dict) else {}
-            otype = meta.get("type")
+            if v2:
+                otype, oname = entry.get("type"), entry.get("name")
+            else:
+                otype = None if (entry.get("geometry") or {}).get("type") == "Cuboid" \
+                    else _v1_object_type(entry)
+                meta = entry.get("metadata")
+                oname = meta.get("name") if isinstance(meta, dict) else None
             if isinstance(otype, str):
                 name_to_type[key] = otype
                 instance_keys.add(key)
-                oname = meta.get("name")
                 if isinstance(oname, str):
-                    name_to_type[oname] = otype
-                    display_names.add(oname)
+                    name_to_type.setdefault(oname, otype)
+                    if oname != key:
+                        display_names.add(oname)
     return {
         "name_to_type": name_to_type,
         "instance_keys": instance_keys,
@@ -1230,38 +1258,50 @@ def validate_worlds(root: Path, report: Report) -> tuple[int, set[str]]:
         data = _load_json(state, report)
         if not isinstance(data, dict):
             continue
+        if data.get("format") == WORLD_MANIFEST_FORMAT:
+            _check_v2_world(world_dir, where, data, report)
+            continue
         version = data.get("version")
         if str(version) not in KNOWN_WORLD_VERSIONS:
             report.warn(f"{where}/world_state.json",
                         f"unknown schema version {version!r} (known: {sorted(KNOWN_WORLD_VERSIONS)})")
         objects = data.get("objects")
         if not isinstance(objects, dict):
-            report.err(f"{where}/world_state.json", "objects must be a dict keyed by instance name")
+            report.err(f"{where}/world_state.json", "objects must be a dict keyed by instance id")
             continue
         for key, entry in objects.items():
             if not isinstance(entry, dict):
                 continue
             geom = entry.get("geometry") or {}
-            if geom.get("type") == "articulated":
-                # An instance needs NO objects/<type>/ copy in the project: the
-                # loader resolves the object model by name (metadata.type, then
-                # metadata.name, then the objects/<name>/ segment of yaml_path),
-                # project copy first, else the shared mesh database, and re-points
-                # yaml_path itself. Only an instance with no resolvable name is a
-                # real problem.
-                yaml_path = geom.get("yaml_path")
-                meta = entry.get("metadata")
-                meta = meta if isinstance(meta, dict) else {}
-                model_name = meta.get("type") or meta.get("name")
-                if not model_name and isinstance(yaml_path, str):
-                    m = re.search(r"(?:^|/)(?:objects|mesh_database)/([^/]+)/", yaml_path)
-                    model_name = m.group(1) if m else None
-                if not model_name:
-                    report.err(f"{where}/world_state.json",
-                               f"instance {key!r}: no metadata.type and no objects/<name>/ "
-                               f"in geometry.yaml_path ({yaml_path!r}) — the loader cannot "
-                               "tell which object model to load")
+            if geom.get("type") == "articulated" and _v1_object_type(entry) is None:
+                # An instance needs NO objects/<type>/ copy: the importer
+                # resolves the type (project copy first, else the mesh
+                # database). Only an instance with no derivable type is a
+                # problem: it is skipped and reported as missing.
+                report.err(f"{where}/world_state.json",
+                           f"instance {key!r}: no metadata.type and no geometry.yaml_path — the "
+                           "loader cannot tell which object model to load; the instance is not "
+                           "loaded (reported in world_missing)")
     return count, names
+
+
+def _check_v2_world(world_dir: Path, where: str, data: dict, report: Report) -> None:
+    """An engine-saved world: world_state.json is a derived manifest naming the
+    .world file the platform actually loads (with its .engine.json sidecar)."""
+    wname = str(data.get("world") or "world.world")
+    wfile = world_dir / wname
+    if not wfile.is_file():
+        report.err(f"{where}/{wname}", "missing — world_state.json (zeon_world_state/2) names it; "
+                                       "the world cannot load")
+        return
+    side = world_dir / f"{wname}.engine.json"
+    if not side.is_file():
+        report.err(f"{where}/{side.name}", "missing — the per-instance types and seats of the world")
+        return
+    doc = _load_json(side, report)
+    if isinstance(doc, dict) and doc.get("format") != WORLD_SIDECAR_FORMAT:
+        report.err(f"{where}/{side.name}", f"format {doc.get('format')!r}, expected "
+                                           f"{WORLD_SIDECAR_FORMAT!r}")
 
 
 # ---------------------------------------------------------------------------

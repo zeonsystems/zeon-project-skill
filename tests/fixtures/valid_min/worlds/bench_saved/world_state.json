@@ -1,0 +1,9 @@
+{
+  "format": "zeon_world_state/2",
+  "world": "world.world",
+  "cell": "two_arm_bench",
+  "metadata": {"name": "bench_saved", "description": ""},
+  "objects": {
+    "tipbox_10ul_2": {"type": "tipbox_grey", "name": "tipbox_10ul_2", "index": null, "tag_collection": null, "parent": "world", "seat": null}
+  }
+}

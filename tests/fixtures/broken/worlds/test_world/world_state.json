@@ -32,8 +32,7 @@
     },
     "nameless_00000000-0000-0000-0000-000000000000": {
       "geometry": {
-        "type": "articulated",
-        "yaml_path": "somewhere/model.object_model.yaml"
+        "type": "articulated"
       },
       "mount": {
         "type": "FixedMount",

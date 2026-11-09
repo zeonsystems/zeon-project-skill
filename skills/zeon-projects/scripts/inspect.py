@@ -184,7 +184,19 @@ def inspect_worlds(root: Path) -> list[dict]:
     for d in sorted(p for p in wdir.iterdir() if p.is_dir() and not p.name.startswith(".")):
         state = _try_json(d / "world_state.json")
         entry: dict = {"world_id": d.name, "instances": []}
-        if isinstance(state, dict):
+        if isinstance(state, dict) and state.get("format") == "zeon_world_state/2":
+            # An engine-saved world: world_state.json is a manifest of the
+            # .world file (poses live there, not here).
+            entry["version"] = "saved (zeon_world_state/2)"
+            for key, obj in (state.get("objects") or {}).items():
+                if isinstance(obj, dict):
+                    inst = {"key": key, "name": obj.get("name") or key}
+                    if obj.get("type"):
+                        inst["type"] = obj["type"]
+                    if obj.get("seat"):
+                        inst["seat"] = obj["seat"]
+                    entry["instances"].append(inst)
+        elif isinstance(state, dict):
             entry["version"] = state.get("version")
             objs = state.get("objects")
             objs = objs if isinstance(objs, dict) else {}
@@ -314,12 +326,14 @@ def print_text(data: dict) -> None:
     print(f"\n## Worlds ({len(data['worlds'])})")
     for wd in data["worlds"]:
         n_real = sum(1 for i in wd["instances"] if "type" in i)
-        print(f"  {wd['world_id']}  (v{wd.get('version')}, {n_real} object instances"
+        print(f"  {wd['world_id']}  ({wd.get('version')}, {n_real} object instances"
               + (", live_state.yaml" if wd.get("has_live_state") else "") + ")")
         for i in wd["instances"]:
             if "type" in i:
                 nm = i.get("name") or i["key"]
                 xyz = f"  @ {i['xyz']}" if "xyz" in i else ""
+                if i.get("seat"):
+                    xyz += f"  on {i['seat'].get('holder')}.{i['seat'].get('anchor')}"
                 print(f"      {nm}  ({i['type']}){xyz}")
 
     print(f"\n## Objects ({len(data['objects'])})")

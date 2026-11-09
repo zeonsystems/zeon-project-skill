@@ -1,0 +1,6 @@
+{
+  "format": "zeon_world_state/2",
+  "world": "world.world",
+  "metadata": {"name": "saved_world"},
+  "objects": {}
+}

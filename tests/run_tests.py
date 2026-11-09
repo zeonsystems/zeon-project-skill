@@ -25,7 +25,8 @@ FIXTURES = REPO / "tests" / "fixtures"
 # Substrings that must appear in the broken fixture's errors+warnings.
 EXPECTED_BROKEN = [
     # worlds: an instance the loader cannot name (no metadata, no objects/ segment)
-    "the loader cannot tell which object model to load",
+    "the loader cannot tell which object model to load",  # no metadata.type, no yaml_path
+    "names it; the world cannot load",          # v2 manifest without its world.world
     # skills
     "description missing",                      # metadata: catalog-fatal description
     "parameters[0].name must be snake_case",
