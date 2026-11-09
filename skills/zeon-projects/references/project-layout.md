@@ -121,6 +121,6 @@ Work lives in three places: your **working tree**, the **cloud project** (canoni
 
 **Pull before editing what the human may have changed.** The app saves to the cloud (a world saved in the World Builder, a workflow edited in the editor, run data pushed when a run the app watched ends). Run `zeon pull` (it refuses a dirty tree: commit first) or `zeon sync` before touching those files, and whenever a `notice:` says the cloud moved on. `scripts/cloud_delta.py` reports drift without changing anything.
 
-**Artifacts.** `save_to_project=True` on `capture_image` / `print_log` / `api_request` keeps an artifact with the project under `data/…/<execution_id>/`; skills writing their own artifacts use `project_data_dir(...)`. They reach your disk with `zeon pull` / `zeon sync` once they are in the cloud.
+**Artifacts.** `capture_image` writes under `data/captures/<execution_id>/`. `print_log` / `api_request` mirror into `data/logs|api/<execution_id>/` only with `save_to_project=True` (marked deprecated in favour of `export=True`, which uploads to a lab-owned bucket instead; it still works). Skills writing their own artifacts use `project_data_dir(...)`. Artifacts reach your disk with `zeon pull` / `zeon sync` once they are in the cloud.
 
 Auth is a `zat_…` token in `.env` (or `~/.zeon/.env`). It is a secret: never read, print or commit it.
