@@ -60,7 +60,7 @@ Skill nodes need `skill_id` (must exist under `skills/`) and `parameters` — al
 }
 ```
 
-Parameter **keys must match the skill function's parameter names** (here `epipette_grey_aspirate(object, anchor, volume, …)` — the input can be named anything, e.g. `well`). Values are either a literal or a `{"$input": "<input name>"}` reference. At run time a missing required parameter **aborts the node**, and an unknown key is **silently dropped** (a typo'd optional parameter runs with the default, no error) — `scripts/validate.py` cross-checks node parameters against the actual signature.
+Parameter **keys must match the skill function's parameter names** (here `epipette_grey_aspirate(object, anchor, volume, …)` — the input can be named anything, e.g. `well`). Values are either a literal (an object as `{"object_ref": "<instance id>"}`) or a `{"$input": "<input name>"}` reference. At run time a missing required parameter **aborts the node**, and an unknown key is **silently dropped** (a typo'd optional parameter runs with the default, no error) — `scripts/validate.py` cross-checks node parameters against the actual signature.
 
 Other node fields: `loop` (loop nodes: `{type: count|collection|conditional, iterations|source|expression}`), `condition` (conditional nodes: `{expression, description}`). **Do not use `retry` on skill nodes — the executor never reads it** (a runtime no-op that only looks like error handling); build retries inside the skill instead (`references/patterns.md`). Loop and conditional nodes run in the executor but can't be created or edited in the visual editor today — if you use them, tell the user the graph won't be fully editable visually.
 
@@ -90,9 +90,9 @@ The executor's semantics for all of this — exception-driven failure routing, t
 
 - `type`: `string` | `int` | `float` | `object` | `structured`. `object` = a world object reference; `structured` = schema-based data with `itemSchema`.
 - `is_array` / `isArray` for multi-value inputs (both spellings accepted; array-of-structured uses `itemSchema` to type each item).
-- **Object input values should be world object *names*** (the `metadata.name` of an instance in the world, e.g. `wellplate_pcr_parts_1`). Prefer names — they stay stable across world rebuilds; UUIDs are accepted and resolved at run time but are brittle.
+- **Object input values are world object instance ids** — what `zeon brief` lists for the world (seeded worlds use readable ids such as `wellplate`). A unique display name also resolves; an ambiguous one raises. An input takes its `defaultValue` unless the run gives one (`zeon run -i name=value`, the app's run dialog).
 - Names match `^[A-Za-z][A-Za-z0-9_]*$`.
-- **Never put UUID-shaped strings through `string` inputs or defaults** (barcodes, filenames): at run time any string containing a UUID is auto-treated as a world object reference, and the lookup miss aborts the skill.
+- **Declare every input's `type`.** A value becomes an object reference only when its input is declared `object`; an input with no declared type falls back to a shape test (a string containing a UUID is treated as an object reference, and the lookup miss aborts the skill).
 
 ## canvas_ui (optional)
 
@@ -108,4 +108,9 @@ Attach a custom run UI (see `references/canvas.md`):
 }
 ```
 
-`source_ref` must match `^canvas/[a-z0-9_]+\.tsx$` and point at an existing file. Omit the block (or `"enabled": false`) to use the auto-generated input form — which is the sensible default; only build a canvas when the user wants one.
+`source_ref` must match `^canvas/[a-z0-9_]+\.tsx$` and point at an existing file. Omit the block (or `"enabled": false`) to use the auto-generated input form — which is the sensible default; only build a canvas when the user wants one. `zeon open --canvas <workflow>` needs an enabled `"kind": "react"` block.
+
+## Running and showing a workflow
+
+- `zeon run "<name or id>"` runs the instance's copy of this file as it is now (`from_project`), so `zeon sync` first. Details: `references/agent-loop.md`.
+- `zeon open --workflow <workflow>` gives the human the run screen. Opened from that link, the graph follows your pushes every 3 s (graph, objects, inputs, `canvas_ui`), except during a run (it catches up after) and over the human's unsaved edits. A changed run setup remounts the canvas and holds Run until Confirm.

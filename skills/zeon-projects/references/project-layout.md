@@ -1,4 +1,4 @@
-# Project layout, manifest, naming, and the dev loop
+# Project layout, manifest, naming, and sync
 
 > Hosted docs: [Key concepts](https://readme.zeonsystems.app/docs/key-concepts.md) · [The project manifest](https://readme.zeonsystems.app/docs/project-json.md) · [The development loop](https://readme.zeonsystems.app/docs/the-development-loop.md) · [CLI reference](https://readme.zeonsystems.app/docs/cli-reference.md) · [Syncing your work](https://readme.zeonsystems.app/docs/syncing-your-work.md)
 
@@ -6,30 +6,35 @@
 
 ```
 project.json                     # manifest (below)
-CLAUDE.md                        # per-project authoring notes — read first
+CLAUDE.md, AGENTS.md             # the agent guide (one text in both) — read first
+README.md                        # orientation (seeded projects)
+viewer.yaml                      # optional camera presets for `zeon look NAME` / look() in the REPL
 skills/<skill_id>/
 ├── robotic_code.py              # the skill implementation (required)
 ├── metadata.yaml                # id/version/description/tags (required)
-└── modules.py                   # optional shim: `from execution.execution_functions import *`
-skills/utils.py                  # optional shared constants/helpers (arm poses etc.)
+├── modules.py                   # `from execution.skill_api import *` (skill API v2)
+└── .motion_plan_cache.pkl       # written by the platform: the skill's plan cache (synced; never author it)
+skills/utils.py                  # optional shared helpers (part of every skill's plan-cache key)
 workflows/<workflow_id>.json     # one graph per file
 worlds/<world_id>/
-├── world_state.json             # the scene: object instances + poses
+├── world_state.json             # the scene: object instances + poses, its tables included
 └── live_state.yaml              # mutable per-object state (tip counters, calibration)
-objects/<name>/
-├── <name>.urdf                  # kinematics/geometry references
-├── <name>.object_model.yaml     # anchors, parts, articulations, motions
+objects/<type>/
+├── <type>.urdf                  # kinematics/geometry references
+├── <type>.object_model.yaml     # anchors, parts, articulations, motions
 └── tag_collections/<unit>.yaml  # optional: per-physical-copy fiducial tags
-canvas/<workflow_id>_screen.tsx  # optional custom run UI per workflow
-inputs/<preset>.json             # optional input presets surfaced to canvases (see references/canvas.md)
+canvas/<workflow_id>_screen.tsx  # optional run-setup UI per workflow
+inputs/<preset>.json             # optional input presets surfaced to canvases (references/canvas.md)
 data/                            # run artifacts, keyed per run by execution_id:
 ├── captures/<execution_id>/     #   camera snapshots (capture_image)
 ├── logs/<execution_id>/         #   run-log mirrors (print_log runlog lines)
 ├── api/<execution_id>/          #   saved api_request responses
 └── runs/                        #   reserved, local-only — never synced, never authored
+executions/<execution_id>/       # run folders the platform writes; only run_log*.jsonl + metadata.json sync
+.runtime/                        # platform scratch, local-only
 ```
 
-A fresh `zeon new project` seeds a runnable **pipette demo** (workflow `pipette_demo`, world `pipette_demo_world`, six left-arm skills — `epipette_grab`/`_attach`/`_aspirate`/`_dispense`/`_eject`/`_place` — plus `skills/utils.py`, a deck of objects, one canvas, and a `CLAUDE.md` describing that deck). Those files are reference material — copy their patterns into new files; don't overwrite them unless the user asks.
+A fresh `zeon new project` is seeded with a runnable **starter** (`template.json` in the scaffold): a world, a few objects, two skill API v2 skills, one workflow, `viewer.yaml`, `README.md` and the agent guide describing that deck. `--template NAME` seeds another server-side template. Treat the starter as reference material: copy its patterns into new files; don't overwrite it unless the user asks.
 
 ## project.json
 
@@ -40,14 +45,16 @@ A fresh `zeon new project` seeds a runnable **pipette demo** (workflow `pipette_
   "created_at": "2026-06-20T00:00:00.000Z",
   "updated_at": "2026-06-20T00:00:00.000Z",
   "archived": false,
-  "active_workflow": "pipette_demo",
-  "active_world": "pipette_demo_world"
+  "active_workflow": "my_flow",
+  "active_world": "my_world",
+  "setup": "<rig name>"
 }
 ```
 
-- `name` is a free display string (≤128 chars, unique per user in the cloud). Item names are strict (below).
-- `active_workflow` → must match an existing `workflows/<id>.json`; `active_world` → an existing `worlds/<id>/`. Either may be `null`.
-- The editor opens `active_workflow`/`active_world` by default. Repointing them changes what runs by default — do it when the user's request calls for it (a new workflow they intend to run, an explicit switch), and say so when you do.
+- `name` is a free display string (unique per user in the cloud). Item names are strict (below).
+- `active_workflow` → an existing `workflows/<id>.json`; `active_world` → an existing `worlds/<id>/`. Either may be `null`. `zeon up` loads `active_world` unless given `--world W`.
+- `setup` names the rig the project is authored for (written only when the template has one). `zeon brief` shows the rig the instance actually runs and warns when the two differ: moves are planned for the loaded rig.
+- Repointing `active_workflow` / `active_world` changes what opens and runs by default — do it when the request calls for it, and say so.
 - Timestamps are ISO-8601 with milliseconds and a `Z` suffix.
 
 ## Naming rules
@@ -59,47 +66,57 @@ A fresh `zeon new project` seeds a runnable **pipette demo** (workflow `pipette_
 | Workflow input names | `^[A-Za-z][A-Za-z0-9_]*$` |
 | Versions (`version` fields) | semver `^\d+\.\d+\.\d+$`, e.g. `1.0.0` |
 
-A skill's Python function name must equal the `skill_id` exactly (the loader does `getattr(module, skill_id)`), and `skill_id` rejects hyphens — so skill folder, `skill_id`, and function name must all be the same underscore-only name. Never use hyphens for skills; avoid them everywhere else too (platform-side creation paths sanitize to `[a-z0-9_]`).
+A skill's Python function name must equal the `skill_id` exactly (the loader does `getattr(module, skill_id)`), and `skill_id` rejects hyphens — so skill folder, `skill_id` and function name are the same underscore-only name. Platform-side creation paths sanitize names to `[a-z0-9_]`; use underscores everywhere and names round-trip.
 
-## The dev loop and sync
+## The CLI
 
-Work lives in three places: the **local working tree**, the **cloud project** (canonical), and the user's **cloud instance / lab machine** (materialized for execution). `zeon sync` is what moves work between them.
+The agent verbs (`up`, `down`, `brief`, `run`, `wait`, `logs`, `py`, `snap`, `open`, `say`, `look`) are in `references/agent-loop.md`. The project verbs:
 
 ```
-zeon sync            # pull cloud changes, merge, push — the everyday step
-zeon status / diff   # review before syncing
-zeon commit          # snapshot locally without pushing
-zeon log / checkout / reset   # history
-zeon clone           # start a working tree from an existing cloud project
-zeon init            # link an existing local directory to a new cloud project
-zeon new project <name> [dir]  # create cloud project + local tree (pipette demo seed)
-zeon new skill|workflow|world|canvas <name>   # scaffold one item
-zeon new object <name>         # materialize an object from the mesh database
+zeon login / zeon auth status|logout   # the USER signs in; never read the token
+zeon new project <name> [dir] [-t TEMPLATE]
+zeon new skill|workflow|world|canvas <name>   # scaffold one item (canvas: also patches canvas_ui)
+zeon new object <type>                 # copy a mesh-database type's URDF + object model into objects/<type>/
+zeon clone <project> [dir]             # working tree from the cloud head (+ AGENTS.md/CLAUDE.md when absent)
+zeon init                              # link this folder to a new cloud project and push it
+zeon status / diff                     # review (status --json: head, remote_head, merge_in_progress, ...)
+zeon commit -m MSG [paths]             # local snapshot
+zeon push                              # send commits; refreshes a loaded instance
+zeon pull                              # fetch the cloud head; fast-forward or write conflict markers
+zeon sync                              # pull + merge + push in one step; refreshes a loaded instance
+zeon log / checkout / reset            # history
 zeon project list|show|rename|archive
-zeon mesh-database list|show|download        # browse the shared object catalog
-zeon auth status               # check login (user runs `zeon auth login` themselves)
-zeon verify                    # not yet implemented — always exits 1 (server-side verification is planned)
+zeon mesh-database list|show           # browse the catalog your org can see
+zeon verify                            # not implemented yet (always exits 1)
 ```
 
-**Scripting the CLI** — `status`, `log`, `project list`, and `project show` take `--json`. `zeon status --json` gives `{head, remote_head, merge_in_progress, added, modified, deleted, unmerged}` — check `merge_in_progress` before editing, or you'll be editing files containing `<<<<<<<` conflict markers. `zeon project show --json` resolves a project name to its `project_id`.
+- `zeon init` requires `skills/`, `workflows/` and `worlds/`, uses the **directory name** as the cloud project name, and refuses when `.zeon/` exists or the name is taken. It commits and pushes everything present.
+- `zeon new object` hard-fails when the catalog has no entry for the type; it only writes files (push afterwards).
+- Check `merge_in_progress` in `zeon status --json` before editing, or you edit files holding `<<<<<<<` markers.
 
-**What `zeon sync` actually does** (it mutates — know before running):
+## Sync rules
 
-1. Silently commits any dirty working tree first ("local changes saved before sync") — uncommitted WIP becomes a commit.
-2. Merges the cloud head. On text conflicts it exits 1, writes `<<<<<<<` markers, and sets a merge-in-progress flag; resolve in-file, then `zeon sync --continue` (or `--abort`). Binary conflicts keep the cloud copy and save yours under `.zeon/backups/`.
-3. Pushes with an If-Match on the ref — a concurrent cloud write means HTTP 412; just sync again (never force-reset to "fix" a 412).
+Work lives in three places: your **working tree**, the **cloud project** (canonical), and the **instance** that runs it (it loads the pushed version). One branch, `main`.
 
-To learn whether the cloud moved *without* mutating anything, use
-`scripts/cloud_delta.py` — read-only, reports local/cloud head drift and
-merge-in-progress state.
+**What a commit takes.** Everything you author, plus:
 
-Other notes:
+- `data/` — the run artifacts (`captures/`, `logs/`, `api/`), except `data/runs/`;
+- plan caches — `skills/<id>/.motion_plan_cache.pkl`;
+- from each `executions/<run>/` folder only `run_log_<run>.jsonl` (older: `run_log.jsonl`) and `metadata.json`.
 
-- One branch (`main`), single-user per project today.
-- `zeon init` (link a hand-authored directory to a new cloud project) requires `skills/`, `workflows/`, and `worlds/` to exist, uses the **directory name** as the cloud project name, and refuses when `.zeon/` already exists or the name is taken. It commits and pushes everything present.
-- Platform-side creation paths sanitize names to `[a-z0-9_]` (spaces/hyphens → underscores) — use underscores everywhere and local names will round-trip identically.
-- Cloud blobs are capped at 16 MB (one oversized file breaks every future push of the project — validate.py checks); projects are text — binaries live in the mesh database.
-- **Run artifacts sync themselves — to the cloud, not to your disk.** When a run launched from the web app reaches a terminal state (completed, failed, or stopped), the app pushes `data/captures|logs|api/` to the cloud copy of the project; oversized files (>16 MB) are skipped with a warning rather than failing the push, and `data/runs/` is excluded. A push preserves earlier runs' output. To get that data onto the local machine, run `zeon sync` (or `zeon pull`) afterwards.
-- **Two destinations, both opt-in per call.** `save_to_project=True` on `capture_image`/`print_log`/`api_request` keeps the artifact with the project (`data/…/<execution_id>/`, comes down with `zeon sync`, works everywhere including the cloud). `export=True` uploads instead to a lab-owned S3 bucket configured per machine — local installs only; in the cloud it does nothing and logs one warning. They are independent; set either or both. Skills writing their own artifacts use `project_data_dir(...)` rather than hand-building paths (each path segment is sanitized, so anything outside `[A-Za-z0-9._-]` becomes `_`).
-- Auth is a `zat_…` token in `.env` (or `~/.zeon/.env`). It is a secret: never read, print, or commit it.
-- Workflows aren't run from the CLI: sim runs happen in the Zeon web app; hardware runs are started from the lab machine's local UI.
+**What it leaves out** (it stays on the machine that wrote it): a run's state (checkpoints, hold and resume files, ledgers, world snapshots), `.runtime/`, `data/runs/`, `.zeon/`. A clone, pull or checkout never writes these either. If an older CLI pushed such a file, the next commit drops it and says so; the file stays on disk.
+
+**The 64 MB per-file limit.** A file over 64 MB is left out of the commit and named (`left out <path> (<size>, over the 64 MB sync limit)`). If the parent commit had a version of it, the project keeps that version; otherwise it is not in the project. A pull never overwrites the local file and a checkout never deletes it. A 413 from the server names the file. Run artifacts the app pushes after a run skip oversized files the same way.
+
+**What `zeon sync` does** (it mutates — know before running):
+
+1. Commits any dirty working tree first ("local changes saved before sync").
+2. Merges the cloud head. On text conflicts it writes `<<<<<<<` markers and sets merge-in-progress: resolve in-file, then `zeon sync --continue` (or `--abort`, which restores your local edits). Binary conflicts keep the cloud copy and save yours under `.zeon/backups/`.
+3. Pushes with a check on the cloud ref. If the cloud moved meanwhile, the push says "the cloud has changed since your last sync — run `zeon sync`": sync again. Never force-reset to get past it.
+4. Refreshes your instance when it has this project loaded ("instance refreshed").
+
+**Pull before editing what the human may have changed.** The app saves to the cloud (a world saved in the World Builder, a workflow edited in the editor, run data pushed when a run the app watched ends). Run `zeon pull` (it refuses a dirty tree: commit first) or `zeon sync` before touching those files, and whenever a `notice:` says the cloud moved on. `scripts/cloud_delta.py` reports drift without changing anything.
+
+**Artifacts.** `save_to_project=True` on `capture_image` / `print_log` / `api_request` keeps an artifact with the project under `data/…/<execution_id>/`; skills writing their own artifacts use `project_data_dir(...)`. They reach your disk with `zeon pull` / `zeon sync` once they are in the cloud.
+
+Auth is a `zat_…` token in `.env` (or `~/.zeon/.env`). It is a secret: never read, print or commit it.

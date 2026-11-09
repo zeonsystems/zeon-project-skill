@@ -2,10 +2,8 @@
 
 > Hosted docs: [Authoring a workflow](https://readme.zeonsystems.app/docs/authoring-a-workflow.md) · [The workflow file](https://readme.zeonsystems.app/docs/workflows-json.md) — this file goes further than either.
 >
-> Note the one family that inverts the usual contract: the motion functions
-> (`list_object_motions` / `load_object_motion` / `play_object_motion`) **raise**
-> instead of returning a result dict, so an unguarded motion failure fails its
-> node by the rule below. See `references/motions.md`.
+> Skill API v2 verbs raise a `SkillError` on failure (a refused or stalled move,
+> an unknown object), so an unguarded failure fails its node by the rule below.
 
 The runtime semantics below are not guessable from the file formats, and several
 are counter-intuitive. They determine whether the code you author does what the
@@ -83,13 +81,14 @@ Reserved state keys — never name a skill parameter any of: `skill_result`,
 not your value). `current_item` is reserved too, but deliberately: declaring
 it is how loop injection works.
 
-## `$input` resolution and the UUID trap
+## `$input` resolution and object inputs
 
-Input values flow into state at run start. Object-typed inputs resolve world
-objects by name. One sharp edge: **any string value containing a UUID anywhere
-is auto-treated as a world object reference** — a barcode or filename shaped
-like a UUID gets "resolved" against the world and the lookup miss aborts the
-skill. Don't route UUID-shaped strings through string inputs or defaults.
+Input values flow into state at run start; an input the run does not set takes its declared `defaultValue`. A
+value becomes an object reference (`{"object_ref": <value>}`) only when its input is **declared** `object`, and
+then it resolves as an instance id or a unique display name. Inputs declared `string` / `int` / ... pass through
+as they are, even when they hold a UUID. Only an input with **no** declared type falls back to a shape test (a
+string containing a UUID is treated as an object reference, and the lookup miss aborts the skill): declare
+every input's `type`.
 
 ## Saving is not validating
 
@@ -104,3 +103,40 @@ and strips null-valued fields — don't fight that churn in diffs.
 `postconditions` are **applied, not verified**: on success their key/values are
 written into execution state for later nodes to read. `preconditions` are
 parsed but currently bypassed by the executor.
+
+## Run control: Stop, pause and prompts
+
+- **A Stop is final.** Once a run is cancelled, a Pause, Resume or step that arrives later cannot make it live
+  again. Ctrl+C on `zeon run` sends a Stop. To go on, start a new run (or the human resumes from a checkpoint
+  in the app's Resume run).
+- **A Stop ends an open `ask_user_slack` prompt at once**: the skill raises the cancel and the run ends
+  cancelled, not failed (the Slack message shows the cancel).
+- **A pause stops a prompt's timeout counting**: `timeout_s` counts only unpaused time, and the prompt stays
+  answerable in the app and in Slack while paused.
+- A `zeon run` / `zeon wait` timeout on a run waiting for a prompt says so (`waiting_on_prompt` in `--json`):
+  the run is waiting for a human, not stuck.
+- **Sim runs from the CLI fail; they never hold.** A skill that raises ends the run failed (exit 1); read
+  `zeon logs ID`, fix, sync, run again. Holds on real-hardware runs are handled by the Zeon team; the status
+  the app and CLI read shows such a run as `running`.
+- **Rollback to a checkpoint is gone** (the route answers 410 Gone). Resume from a checkpoint remains.
+
+## The plan cache
+
+Each skill keeps the moves it planned in `skills/<id>/.motion_plan_cache.pkl` (written by the platform, synced
+with the project, never authored). A move in a skill run is keyed by **the skill's source digest + the skill's
+inputs + the move's position in the run**, and is reused when the command and the nearby world match;
+otherwise it is solved again (the miss says why: "first run", "new command", "world changed", ...).
+
+- The source digest hashes every `.py` file in the skill's folder **and every `.py` directly in `skills/`**
+  (`skills/utils.py`, ...). Editing `skills/<id>/*.py` invalidates that skill's plans; editing a top-level
+  `skills/*.py` invalidates **every** skill's plans. Re-syncing identical bytes does not.
+- Different inputs are different keys: the first run with new inputs solves its moves.
+- So: **don't edit skill code between the runs of a series** (a comparison, a repeat-until-it-works loop on
+  timing). Batch the edits, sync once, and expect the first run after them to be slow; the runs after it reuse
+  the plans.
+- `with plan_scope(name, *values):` keys the moves inside by `(source, name, values, ordinal in the block)`
+  instead of all the inputs, so an approach that depends only on, say, the object is planned once for every
+  well and volume (`references/skills.md`).
+- In the platform's service log, the load line reads `motion: plan cache <skill> in memory N, read M (...)`,
+  and each move's line names the cache outcome (`plan cache <skill> move <n> hit` / `miss (<why>)`) with the
+  solve time split by phase.

@@ -20,10 +20,14 @@ hosted page when:
 - something suggests the platform has **moved past this skill** — a CLI flag,
   API name, or field that the references don't know about.
 
-The two sources shouldn't contradict each other. If they do, trust the project
-you are in first, then the `zeon` CLI, then check the hosted page's content
-against `references/execution-functions.json` before acting — and tell the user
-about the discrepancy.
+The two sources shouldn't contradict each other, but the hosted pages can lag
+the platform. Known lag (checked 2026-11-08): the robot-API pages still
+describe the v1 surface (`from execution.execution_functions import *`,
+`"left_arm"` / `"right_arm"`, v1 motion verbs) while projects use skill API v2,
+and no page covers the agent verbs (`zeon up`, `zeon run`, `zeon open`, ...).
+On any conflict trust the project you are in first, then `zeon <verb> --help`,
+then this skill's references (`execution-functions.json` for the API), and
+tell the user about the discrepancy.
 
 ## Covered offline — fetch only for more depth
 
@@ -31,6 +35,7 @@ about the discrepancy.
 |---|---|---|
 | Orientation, vocabulary | *(SKILL.md)* | [Key concepts](https://readme.zeonsystems.app/docs/key-concepts.md), [Glossary](https://readme.zeonsystems.app/docs/glossary.md) |
 | Project layout, `project.json` | `project-layout.md` | [The project manifest](https://readme.zeonsystems.app/docs/project-json.md), [File reference](https://readme.zeonsystems.app/docs/file-reference.md) |
+| The agent loop: `zeon up/run/py/brief/open`, links for the human | `agent-loop.md` | [The development loop](https://readme.zeonsystems.app/docs/the-development-loop.md), [Running a workflow in the cloud sim](https://readme.zeonsystems.app/docs/running-a-workflow-in-the-cloud-sim.md) (both predate the agent verbs) |
 | Dev loop, CLI, sync | `project-layout.md` | [The development loop](https://readme.zeonsystems.app/docs/the-development-loop.md), [CLI reference](https://readme.zeonsystems.app/docs/cli-reference.md), [zeon new](https://readme.zeonsystems.app/docs/zeon-new.md), [zeon project](https://readme.zeonsystems.app/docs/zeon-project.md), [Syncing your work](https://readme.zeonsystems.app/docs/syncing-your-work.md) |
 | Skills — code + metadata | `skills.md` | [Skills](https://readme.zeonsystems.app/docs/skills.md), [Authoring a skill](https://readme.zeonsystems.app/docs/authoring-a-skill.md), [The skill metadata file](https://readme.zeonsystems.app/docs/skills-metadata-yaml.md) |
 | The robot API | `execution-functions.json`, `skills.md` | [Skill runtime API](https://readme.zeonsystems.app/docs/skill-runtime-api.md) and its sub-pages: [arm + gripper](https://readme.zeonsystems.app/docs/arm-motion-and-the-gripper.md), [objects/anchors/world](https://readme.zeonsystems.app/docs/objects-anchors-and-the-world.md), [pipetting](https://readme.zeonsystems.app/docs/pipetting.md), [perception](https://readme.zeonsystems.app/docs/perception.md), [external APIs](https://readme.zeonsystems.app/docs/calling-an-external-api.md), [pausing/operator prompts](https://readme.zeonsystems.app/docs/pausing-and-operator-prompts.md), [state + logging](https://readme.zeonsystems.app/docs/skill-state-and-logging.md) |
@@ -38,7 +43,7 @@ about the discrepancy.
 | Recorded motions (replay API, `motions:` block) | `motions.md` | [Motions](https://readme.zeonsystems.app/docs/motions.md), [Recording a motion](https://readme.zeonsystems.app/docs/recording-a-motion.md) |
 | Anchor snapping | `patterns.md` | [How anchor snapping works](https://readme.zeonsystems.app/docs/anchor-snapping.md) |
 | Workflow graphs | `workflows.md` | [Workflows](https://readme.zeonsystems.app/docs/workflows.md), [Authoring a workflow](https://readme.zeonsystems.app/docs/authoring-a-workflow.md), [The workflow file](https://readme.zeonsystems.app/docs/workflows-json.md) |
-| Executor semantics | `execution-model.md` | [Authoring a workflow](https://readme.zeonsystems.app/docs/authoring-a-workflow.md) — the reference goes deeper (verified against the executor) |
+| Executor semantics, Stop / prompts, the plan cache | `execution-model.md` | [Authoring a workflow](https://readme.zeonsystems.app/docs/authoring-a-workflow.md) — the reference goes deeper (verified against the executor) |
 | Worlds and objects | `worlds-and-objects.md` | [Worlds and objects](https://readme.zeonsystems.app/docs/worlds-and-objects.md), [The world state file](https://readme.zeonsystems.app/docs/worlds-world-state-json.md), [The object model file](https://readme.zeonsystems.app/docs/objects-object-model-yaml.md), [Anchors](https://readme.zeonsystems.app/docs/anchors.md) |
 | Tags, tagged units, localizing an object | `worlds-and-objects.md` | [Localizing an object](https://readme.zeonsystems.app/docs/localizing-an-object.md), [Perception](https://readme.zeonsystems.app/docs/perception.md) |
 | `live_state.yaml` | `live-state.md` | [Building a world](https://readme.zeonsystems.app/docs/building-a-world.md), [The world state file](https://readme.zeonsystems.app/docs/worlds-world-state-json.md) |
@@ -64,5 +69,5 @@ yourself; ask them to run `zeon auth login`.
 
 ---
 
-*This map covers all 61 published pages as of the v1.1 "autoworld" release,
-verified 2026-08-06. `llms.txt` is authoritative for what is live right now.*
+*Checked against the 63 entries of `llms.txt` on 2026-11-08.
+`llms.txt` is authoritative for what is live right now.*

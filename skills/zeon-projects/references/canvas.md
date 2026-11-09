@@ -4,6 +4,8 @@
 
 A canvas is an optional custom React UI that replaces the auto-generated input form when a workflow is run. Most workflows don't need one — the auto-form covers declared inputs. Build a canvas when the user wants richer input UX (plate-map pickers, computed values, guided setup).
 
+**You author canvases; the app only renders them.** The source is `canvas/<workflow_id>_screen.tsx` in the project, attached by the workflow's `canvas_ui`. The web app has no canvas editor: the Workflow Editor's Edit and Schema tabs and its canvas source panel are gone. Change a canvas by editing the file and running `zeon sync`.
+
 ## The contract
 
 - One file: `canvas/<workflow_id>_screen.tsx`, `export default` a React component.
@@ -29,15 +31,16 @@ export default function MyFlowScreen() {
   return (
     <div style={{ fontFamily: "monospace", padding: 16 }}>
       {/* build inputs from zeon.schema; object pickers from zeon.worldObjects */}
-      <button onClick={() => zeon.submit(values)}>Run</button>
+      <button onClick={() => zeon.submit(values)}>Confirm setup</button>
     </div>
   );
 }
 ```
 
+- `zeon.worldObjects` entries also carry `meshType`, `anchors` (names) and `pose` (`{xyz, wxyz}`, metres, scalar-first quaternion) when known.
 - `zeon.schema` mirrors the workflow's declared `inputs` (camelCase field names: `defaultValue`, `isArray`, `itemSchema`). Key the submitted `values` by input **name**; object-typed values should be world object **names** (from `zeon.worldObjects[].name`) — UUIDs also validate and resolve at run time, but prefer names.
 - **`zeon.submit(values)` does not run the workflow.** It stages the values with the host and arms the editor's Run button — the operator still presses Run. Label your button "Confirm setup", never "Run". Validation failures come back through `onValidationErrors`.
-- The host global has more members than the five declared above: `setConfirmed(bool)` (gate the Run button — call `setConfirmed(false)` whenever the operator edits a field after confirming, or the editor happily runs stale inputs; re-confirm to re-arm), `setDirty(bool)`, `resetInputs()`, the live tip-box state trio `tipBoxes`, `onTipCounts(cb)`, `resetTipBox(id)`, and `inputPresets` (below). Extend the `declare const zeon` block with the members you use.
+- The host global has more members than the five declared above: `setConfirmed(bool)` (gate the Run button — call `setConfirmed(false)` whenever the operator edits a field after confirming, or the editor happily runs stale inputs; re-confirm to re-arm), `setDirty(bool)`, `resetInputs()`, the live tip-box state trio `tipBoxes`, `onTipCounts(cb)`, `resetTipBox(id)`, and `inputPresets` / `onInputPresets(cb)` (below). Extend the `declare const zeon` block with the members you use.
 - The submit-then-edit stale-inputs bug is the most common canvas defect — a canvas that only calls `submit()` leaves Run armed with old values. Track a snapshot of the confirmed values and call `setConfirmed(false)` on any change.
 
 ## Wiring it into the workflow
@@ -54,7 +57,7 @@ The TSX file does nothing until the workflow references it (see `references/work
 }
 ```
 
-`zeon new canvas <workflow_id>` scaffolds the TSX **and** patches the workflow's `canvas_ui` block for you (it aborts if the workflow is missing, already has a `canvas_ui` block, or the TSX exists — so don't pre-add the block). Write `canvas_ui` by hand only when you create the TSX yourself without the CLI. Bump `version` when changing an existing canvas. `source_ref` must match `^canvas/[a-z0-9_]+\.tsx$` (max source size 256 KiB).
+`zeon new canvas <workflow_id>` scaffolds `canvas/<workflow_id>_screen.tsx` **and** patches the workflow's `canvas_ui` block for you (it aborts if the workflow is missing, already has a `canvas_ui` block, or the TSX exists — so don't pre-add the block). Write `canvas_ui` by hand only when you create the TSX yourself without the CLI. Bump `version` when changing an existing canvas. `source_ref` must match `^canvas/[a-z0-9_]+\.tsx$` (max source size 256 KiB).
 
 ## Input presets — inputs/*.json → zeon.inputPresets
 
@@ -90,3 +93,10 @@ named bundle of workflow-input values:
 ## Deriving the form
 
 Read the workflow JSON's `inputs` to decide what to render: `string` → text field, `int`/`float` → number field (respect `defaultValue`), `object` → a select over `zeon.worldObjects` (filter by name prefix if the input description implies a type), `is_array` → repeatable rows, `structured` → fields from `itemSchema`.
+
+## Showing it to the human
+
+1. `zeon sync` (the app reads the pushed copy on your instance).
+2. `zeon open --canvas <workflow>` prints a web app link to the run screen's **Inputs** tab with the canvas rendered against the sim. The project must be the instance's active one (`zeon up` first); the command refuses a workflow with no enabled React `canvas_ui`.
+3. On a page opened from that link the canvas **follows your pushes**: it re-reads the source every 3 s while the tab is visible and re-renders when it changed. A changed source mounts fresh: the human's typed values and Confirm reset, and Run stays held until they press **Confirm setup** again. Tell them when you push a change. A page opened without a link fetches the source once.
+4. A compile error shows in place of the canvas with its line number; the human can fall back to the standard form.
