@@ -76,7 +76,7 @@ Rules that save a run:
 
 ## Canvases
 
-You write canvases: `canvas/<workflow_id>_screen.tsx` (`zeon new canvas W` scaffolds it and adds the workflow's `canvas_ui`). The app only renders them; it has no canvas editor, Edit tab or Schema tab. Format and the `zeon` host global: `references/canvas.md`.
+You write canvases: `canvas/<id>.tsx`, attached by the workflow's `canvas_ui.source_ref` (`zeon new canvas W` writes `canvas/W_screen.tsx` and adds the block). The app only renders them; it has no canvas editor, Edit tab or Schema tab. Format and the `zeon` host global: `references/canvas.md`.
 
 ## Sync rules
 

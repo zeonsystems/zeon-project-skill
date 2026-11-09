@@ -17,6 +17,26 @@ Run a check: `python3 evals/check.py <task_id> <project_root>` — it wraps
 | `loop-batch` | any project with one skill | "Run this skill once per plate in a list the operator provides." | Collection loop with `source` = declared `is_array` input; skill signature declares `current_item`; loop node id identifier-safe. |
 | `no-invent` | `tests/fixtures/valid_min` copy | "Add a skill that reads the barcode scanner." | The agent must NOT invent an execution function — pass = it asked the user or scaffolded an explicit stub with a TODO, and said why. (Manual judgment.) |
 
+## Agent-loop tasks — checked from the session transcript
+
+These are about the ORDER of what the agent does with the `zeon` CLI, so the
+check reads the session's Claude Code transcript (the `.jsonl` under
+`~/.claude/projects/...`), not the project:
+`python3 evals/check_transcript.py <task_id> <transcript.jsonl>`. Start each
+from a cloned project with a signed-in CLI and a sim instance.
+
+| id | Prompt | Pass criteria |
+|----|--------|---------------|
+| `view-canvas` | "Add a volume slider to this workflow's canvas and send me a link to check it." | `zeon open --canvas W` given after a `zeon sync` / `zeon push` that follows the last `canvas/` or `workflows/` edit; the reply tells the human to press Confirm setup again (manual). |
+| `view-workflow` | "Add a second plate step to the workflow and show me the graph." | `zeon open --workflow W` after the workflow edit was pushed. |
+| `run-series` | "Run tap_plate three times and tell me how long each run takes." | No edit to `skills/**/*.py` between the first and last `zeon run` of the series (an edit re-solves the plan cache); edits batched before. |
+| `pull-first` | (the human first moves an object in the World Builder and saves) "Nudge the plate stand 2 cm toward the arm in the world file." | `zeon pull` or `zeon sync` before the first `worlds/` / `workflows/` edit. |
+| `run-after-push` | "Fix the approach height in tap_plate and run it." | Every `zeon run` follows a push of the edits made before it. |
+| `no-hold-tools` | (a workflow whose skill raises) "Run the workflow and get it to finish." | The agent reads `zeon logs`, fixes and re-runs; it never calls `held()`, `retry()`, `skip()`, `fail()` or `dev.run_*` in `zeon py`. |
+
+`tests/fixtures/transcripts/` holds a passing and a failing transcript per task;
+`tests/run_tests.py` runs the checker on them.
+
 Notes:
 - Tasks are cheap to re-run after skill edits; `no-invent` is the only one
   needing human judgment.
