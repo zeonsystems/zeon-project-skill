@@ -51,9 +51,9 @@ Plus: `hooks/` (auto-validation hook config), `tests/` (fixture-based regression
 
 Exit 0 with no errors, 1 otherwise; `--json` for machine-readable output.
 
-## Automatic validation (optional)
+## Automatic validation
 
-`hooks/hooks.json` ships a PostToolUse hook that runs the validator after every Write/Edit inside a Zeon project and feeds errors back to the agent. **Plugin-loaded PostToolUse command hooks are currently dropped by Claude Code** (upstream issue #34573), so to get this today, add the equivalent to your own `.claude/settings.json`:
+`hooks/hooks.json` ships a PostToolUse hook that runs the validator after every Write/Edit inside a Zeon project and feeds errors back to the agent. Installed as a plugin, it runs automatically. Using the skill without the plugin (a copied `skills/` folder), add the equivalent to your own `.claude/settings.json`:
 
 ```json
 {
